@@ -10,6 +10,7 @@ import '../../features/diary/presentation/stats_page.dart';
 import '../../features/diary/presentation/calendar_page.dart';
 import '../../features/diary/presentation/trash_page.dart';
 import '../../features/diary/presentation/tags_page.dart';
+import '../../features/diary/presentation/goals_page.dart';
 import '../../features/settings/presentation/settings_page.dart';
 
 /// 路由配置
@@ -57,6 +58,10 @@ final GoRouter _router = GoRouter(
     GoRoute(
       path: '/tags',
       builder: (context, state) => const TagsPage(),
+    ),
+    GoRoute(
+      path: '/goals',
+      builder: (context, state) => const GoalsPage(),
     ),
     GoRoute(
       path: '/settings',

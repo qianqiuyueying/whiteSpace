@@ -294,6 +294,16 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                         ),
                       ], isDark),
                       const SizedBox(height: 24),
+                      _buildSection('个人', [
+                        _buildListTile(
+                          icon: Icons.flag_outlined,
+                          title: '写作目标',
+                          subtitle: '设置每日/每周写作目标',
+                          onTap: () => context.push('/goals'),
+                          isDark: isDark,
+                        ),
+                      ], isDark),
+                      const SizedBox(height: 24),
                       _buildSection('数据管理', [
                         _buildListTile(
                           icon: Icons.delete_outline_rounded,
