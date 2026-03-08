@@ -1,0 +1,154 @@
+name: Build and Release
+
+on:
+  push:
+    branches:
+      - main
+      - master
+    tags:
+      - 'v*.*.*'
+  pull_request:
+    branches:
+      - main
+      - master
+
+jobs:
+  build:
+    name: Build & Release
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. 检出代码
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # 2. 设置 Java 环境
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      # 3. 设置 Flutter 环境
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.x'
+          channel: 'stable'
+          cache: true
+
+      # 4. 获取依赖
+      - name: Install dependencies
+        run: flutter pub get
+
+      # 5. 代码分析
+      - name: Analyze code
+        run: flutter analyze
+
+      # 6. 运行测试（如果有）
+      - name: Run tests
+        run: flutter test || true
+
+      # 7. 构建 Android APK
+      - name: Build Android APK
+        run: flutter build apk --release
+
+      # 8. 构建 Android AAB
+      - name: Build Android AAB
+        run: flutter build appbundle --release
+
+      # 9. 构建 Windows EXE（需要 Windows 环境）
+      # 注意：Windows 构建在单独的 job 中进行
+
+      # 10. 准备发布文件
+      - name: Prepare release files
+        run: |
+          mkdir -p release_assets
+          cp build/app/outputs/flutter-apk/app-release.apk release_assets/white_space_qwen-android.apk
+          cp build/app/outputs/bundle/release/app-release.aab release_assets/white_space_qwen.aab
+
+      # 11. 创建 Release（仅在 tag 推送时）
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            release_assets/white_space_qwen-android.apk
+            release_assets/white_space_qwen.aab
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # 12. 上传构建产物（PR 和非 tag 推送时）
+      - name: Upload APK artifact
+        if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
+          retention-days: 30
+
+      - name: Upload AAB artifact
+        if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-aab
+          path: build/app/outputs/bundle/release/app-release.aab
+          retention-days: 30
+
+  build-windows:
+    name: Build Windows
+    runs-on: windows-latest
+
+    steps:
+      # 1. 检出代码
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # 2. 设置 Flutter 环境
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.x'
+          channel: 'stable'
+          cache: true
+
+      # 3. 获取依赖
+      - name: Install dependencies
+        run: flutter pub get
+
+      # 4. 构建 Windows EXE
+      - name: Build Windows EXE
+        run: flutter build windows --release
+
+      # 5. 收集 Windows 构建产物
+      - name: Collect Windows build
+        run: |
+          mkdir -p release_assets_windows
+          Copy-Item -Path "build\windows\x64\runner\Release\*" -Destination "release_assets_windows\" -Recurse -Force
+          Compress-Archive -Path "release_assets_windows\*" -DestinationPath "white_space_qwen-windows.zip" -Force
+
+      # 6. 上传 Windows 构建产物
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-build
+          path: white_space_qwen-windows.zip
+          retention-days: 30
+
+      # 7. 添加到 Release（仅在 tag 推送时）
+      - name: Add to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v1
+        with:
+          files: white_space_qwen-windows.zip
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,6 +1,25 @@
 # white_space_qwen
 
-A new Flutter project.
+A beautiful diary app with GitHub Gist sync
+
+[![Build and Release](https://github.com/qianqiuyueying/whiteSpace/actions/workflows/build-and-release.yml/badge.svg)](https://github.com/qianqiuyueying/whiteSpace/actions/workflows/build-and-release.yml)
+[![Latest Release](https://img.shields.io/github/v/release/qianqiuyueying/whiteSpace)](https://github.com/qianqiuyueying/whiteSpace/releases)
+
+## 📥 下载
+
+访问 [Releases 页面](https://github.com/qianqiuyueying/whiteSpace/releases) 下载最新版本：
+
+- **Android**: `white_space_qwen-android.apk` (直接安装) 或 `white_space_qwen.aab` (Google Play)
+- **Windows**: `white_space_qwen-windows.zip`
+
+## 🚀 自动构建
+
+本项目已配置自动构建流程：
+
+- **Push 到 main**: 自动构建并上传 Artifacts
+- **创建 Tag (v*)**: 自动构建并发布 Release
+
+详情查看 [CI/CD 配置说明](docs/CICD_SETUP.md)
 
 ## Getting Started
 
