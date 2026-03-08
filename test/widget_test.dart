@@ -1,30 +1,78 @@
-// This is a basic Flutter widget test.
+// 留白日记应用单元测试
 //
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
+// 测试核心模型和服务
 
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-
-import 'package:white_space_qwen/main.dart';
+import 'package:white_space_qwen/features/diary/data/models/diary_entry.dart';
+import 'package:white_space_qwen/shared/widgets/diary_card.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  group('DiaryEntry Model Tests', () {
+    test('DiaryEntry should be created with default values', () {
+      final entry = DiaryEntry()
+        ..content = 'Test content';
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+      expect(entry.content, 'Test content');
+      expect(entry.moodIndex, 7); // 默认 neutral
+      expect(entry.tags, isEmpty);
+      expect(entry.images, isEmpty);
+      expect(entry.isDeleted, false);
+      expect(entry.isSynced, false);
+    });
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
+    test('DiaryEntry should serialize to JSON correctly', () {
+      final entry = DiaryEntry()
+        ..title = 'Test Title'
+        ..content = 'Test content'
+        ..moodIndex = 0
+        ..tags = ['tag1', 'tag2'];
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+      final json = entry.toJson();
+
+      expect(json['title'], 'Test Title');
+      expect(json['content'], 'Test content');
+      expect(json['moodIndex'], 0);
+      expect(json['tags'], ['tag1', 'tag2']);
+    });
+
+    test('DiaryEntry should deserialize from JSON correctly', () {
+      final json = {
+        'uuid': 'test-uuid',
+        'title': 'Test Title',
+        'content': 'Test content',
+        'moodIndex': 3,
+        'tags': ['tag1'],
+        'images': [],
+        'createdAt': '2024-01-01T00:00:00.000',
+        'updatedAt': '2024-01-01T00:00:00.000',
+      };
+
+      final entry = DiaryEntry.fromJson(json);
+
+      expect(entry.title, 'Test Title');
+      expect(entry.content, 'Test content');
+      expect(entry.moodIndex, 3);
+      expect(entry.tags, ['tag1']);
+    });
+  });
+
+  group('Mood Enum Tests', () {
+    test('Mood enum should have correct values', () {
+      expect(Mood.values.length, 8);
+      expect(Mood.happy.label, '开心');
+      expect(Mood.happy.emoji, '😊');
+      expect(Mood.neutral.label, '一般');
+      expect(Mood.neutral.emoji, '😐');
+    });
+  });
+
+  group('Weather Enum Tests', () {
+    test('Weather enum should have correct values', () {
+      expect(Weather.values.length, 6);
+      expect(Weather.sunny.label, '晴');
+      expect(Weather.sunny.emoji, '☀️');
+      expect(Weather.rainy.label, '雨');
+      expect(Weather.rainy.emoji, '🌧️');
+    });
   });
 }
