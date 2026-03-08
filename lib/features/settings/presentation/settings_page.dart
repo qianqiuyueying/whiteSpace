@@ -15,10 +15,12 @@ import '../../../core/constants/app_constants.dart';
 import '../../../core/services/database_service.dart';
 import '../../../core/services/import_service.dart';
 import '../../../core/services/auth_service.dart';
+import '../../../core/services/version_service.dart';
 import '../../sync/presentation/sync_provider.dart';
 import '../../auth/presentation/auth_provider.dart';
 import '../../auth/data/models/user_profile.dart';
 import '../../diary/presentation/diary_provider.dart';
+import '../../../shared/widgets/update_dialog.dart';
 
 /// 设置页面
 ///
@@ -32,10 +34,62 @@ class SettingsPage extends ConsumerStatefulWidget {
 
 class _SettingsPageState extends ConsumerState<SettingsPage> {
   bool _isSyncing = false;
+  bool _isCheckingUpdate = false;
 
   @override
   void initState() {
     super.initState();
+  }
+
+  /// 检查更新
+  Future<void> _checkForUpdate() async {
+    setState(() => _isCheckingUpdate = true);
+
+    try {
+      final versionInfo = await VersionService.checkForUpdates();
+
+      if (!mounted) return;
+
+      if (versionInfo != null) {
+        // 有新版本，显示更新弹窗
+        await showUpdateDialog(
+          context: context,
+          versionInfo: versionInfo,
+          isDark: Theme.of(context).brightness == Brightness.dark,
+        );
+      } else {
+        // 已是最新版本
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('已是最新版本，无需更新'),
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppTheme.radiusLG),
+              ),
+              backgroundColor: AppTheme.primaryColor,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('检查更新失败：$e'),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppTheme.radiusLG),
+            ),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isCheckingUpdate = false);
+      }
+    }
   }
 
   Future<void> _unbindToken() async {
@@ -442,6 +496,20 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                       const SizedBox(height: 24),
                       _buildSection('关于', [
                         _buildListTile(
+                          icon: Icons.system_update_rounded,
+                          title: '检查更新',
+                          subtitle: '当前版本 ${AppConstants.appVersion}',
+                          onTap: _checkForUpdate,
+                          isDark: isDark,
+                          trailing: _isCheckingUpdate
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                )
+                              : null,
+                        ),
+                        _buildListTile(
                           icon: Icons.info_outline_rounded,
                           title: '版本',
                           subtitle: AppConstants.appVersion,
@@ -803,6 +871,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     String? subtitle,
     VoidCallback? onTap,
     required bool isDark,
+    Widget? trailing,
   }) {
     return ListTile(
       leading: Container(
@@ -837,7 +906,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               ),
             )
           : null,
-      trailing: onTap != null
+      trailing: trailing ?? (onTap != null
           ? Icon(
               Icons.chevron_right_rounded,
               color: isDark

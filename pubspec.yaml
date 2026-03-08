@@ -25,6 +25,7 @@ dependencies:
   
   # 网络请求
   dio: ^5.7.0
+  http: ^1.2.0
   
   # 本地存储
   shared_preferences: ^2.3.3
@@ -39,6 +40,7 @@ dependencies:
   path_provider: ^2.1.5
   uuid: ^4.5.1
   url_launcher: ^6.3.1
+  package_info_plus: ^8.0.0
   
   # 文件操作
   file_picker: ^8.1.4
@@ -58,7 +60,7 @@ dependencies:
 
   # PDF 导出
   pdf: ^3.11.0
-  printing: ^5.12.0
+  # printing: ^5.12.0  # 暂时禁用，pdfium 下载失败
 
 dev_dependencies:
   flutter_test:
