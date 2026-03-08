@@ -1,7 +1,26 @@
+buildscript {
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        classpath("com.android.tools.build:gradle:8.7.0")
+    }
+}
+
 allprojects {
     repositories {
         google()
         mavenCentral()
+    }
+}
+
+// 修复 isar_flutter_libs namespace 问题
+subprojects {
+    if (project.name == "isar_flutter_libs") {
+        project.extensions.findByType<com.android.build.gradle.LibraryExtension>()?.apply {
+            namespace = "com.isar.flutter_libs"
+        }
     }
 }
 
