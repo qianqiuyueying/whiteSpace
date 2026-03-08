@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -8,6 +9,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/services/database_service.dart';
 import '../../../core/services/draft_service.dart';
+import '../../../core/services/image_service.dart';
 import '../data/models/diary_entry.dart';
 import 'diary_provider.dart';
 
@@ -36,6 +38,9 @@ class _DiaryEditPageState extends ConsumerState<DiaryEditPage> {
   Timer? _autoSaveTimer;
   bool _showSavedIndicator = false;
 
+  // 临时图片列表（用于新日记）
+  final List<String> _tempImages = [];
+
   @override
   void initState() {
     super.initState();
@@ -62,7 +67,7 @@ class _DiaryEditPageState extends ConsumerState<DiaryEditPage> {
       moodIndex: _selectedMood,
       weatherIndex: _selectedWeather,
       tags: _tags,
-      images: _existingDiary?.images ?? [],
+      images: _existingDiary?.images ?? _tempImages,
       lastSavedAt: DateTime.now(),
     );
 
@@ -136,6 +141,7 @@ class _DiaryEditPageState extends ConsumerState<DiaryEditPage> {
           _selectedMood = draft.moodIndex;
           _selectedWeather = draft.weatherIndex;
           _tags = draft.tags;
+          _tempImages.addAll(draft.images);
         });
       } else {
         // 清除草稿
@@ -204,6 +210,7 @@ class _DiaryEditPageState extends ConsumerState<DiaryEditPage> {
           moodIndex: _selectedMood,
           weatherIndex: _selectedWeather,
           tags: _tags,
+          images: _tempImages,
         );
       }
 
@@ -228,6 +235,31 @@ class _DiaryEditPageState extends ConsumerState<DiaryEditPage> {
         setState(() => _isSaving = false);
       }
     }
+  }
+
+  Future<void> _pickImage() async {
+    final imageService = ref.read(imageServiceProvider);
+    final imagePaths = await imageService.pickFromGallery(maxImages: 9);
+
+    if (imagePaths.isNotEmpty && mounted) {
+      setState(() {
+        if (_existingDiary != null) {
+          _existingDiary!.images.addAll(imagePaths);
+        } else {
+          _tempImages.addAll(imagePaths);
+        }
+      });
+    }
+  }
+
+  void _removeImage(int index) {
+    setState(() {
+      if (_existingDiary != null) {
+        _existingDiary!.images.removeAt(index);
+      } else {
+        _tempImages.removeAt(index);
+      }
+    });
   }
 
   void _addTag() {
@@ -278,6 +310,7 @@ class _DiaryEditPageState extends ConsumerState<DiaryEditPage> {
                       _buildTitleField(isDark),
                       const SizedBox(height: 16),
                       _buildContentField(isDark),
+                      _buildImageSection(isDark),
                       const SizedBox(height: 24),
                       _buildTagSection(isDark),
                     ],
@@ -327,6 +360,14 @@ class _DiaryEditPageState extends ConsumerState<DiaryEditPage> {
               ),
             ).animate().fadeIn(),
           const Spacer(),
+          // 图片按钮
+          IconButton(
+            onPressed: _pickImage,
+            icon: Icon(
+              Icons.image_rounded,
+              color: isDark ? AppTheme.darkText : AppTheme.lightText,
+            ),
+          ),
           TextButton.icon(
             onPressed: _isSaving ? null : _save,
             icon: _isSaving
@@ -557,6 +598,82 @@ class _DiaryEditPageState extends ConsumerState<DiaryEditPage> {
         border: InputBorder.none,
         contentPadding: EdgeInsets.zero,
       ),
+    );
+  }
+
+  Widget _buildImageSection(bool isDark) {
+    final images = _existingDiary?.images ?? _tempImages;
+
+    if (images.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 16),
+        Text(
+          '图片',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: isDark ? AppTheme.darkText : AppTheme.lightText,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          children: images.asMap().entries.map((entry) {
+            final index = entry.key;
+            final path = entry.value;
+            return Stack(
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Image.file(
+                    File(path),
+                    width: 100,
+                    height: 100,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => Container(
+                      width: 100,
+                      height: 100,
+                      decoration: BoxDecoration(
+                        color: isDark ? AppTheme.darkCard : AppTheme.lightCard,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Icon(
+                        Icons.broken_image_rounded,
+                        color: isDark
+                            ? AppTheme.darkTextSecondary
+                            : AppTheme.lightTextSecondary,
+                      ),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  top: 4,
+                  right: 4,
+                  child: GestureDetector(
+                    onTap: () => _removeImage(index),
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        color: Colors.black54,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(
+                        Icons.close_rounded,
+                        size: 16,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            );
+          }).toList(),
+        ),
+      ],
     );
   }
 
