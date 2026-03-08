@@ -43,6 +43,26 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      # 4.5 修复 isar_flutter_libs namespace 问题
+      - name: Fix isar_flutter_libs namespace
+        run: |
+          # 找到 isar_flutter_libs 的 build.gradle 并添加 namespace
+          ISAR_BUILD_GRADLE=$(find /home/runner/.pub-cache/hosted/pub.dev -name "build.gradle" -path "*/isar_flutter_libs-*/android/build.gradle" 2>/dev/null | head -1)
+          if [ -n "$ISAR_BUILD_GRADLE" ]; then
+            echo "Found isar_flutter_libs build.gradle at: $ISAR_BUILD_GRADLE"
+            # 在 android 块中添加 namespace
+            sed -i '/^android {/a\    namespace "com.isar.flutter_libs"' "$ISAR_BUILD_GRADLE"
+            echo "Added namespace to isar_flutter_libs"
+          else
+            echo "isar_flutter_libs build.gradle not found, trying alternative method..."
+            # 尝试查找并修改 build.gradle.kts
+            ISAR_BUILD_GRADLE_KTS=$(find /home/runner/.pub-cache/hosted/pub.dev -name "build.gradle.kts" -path "*/isar_flutter_libs-*/android/" 2>/dev/null | head -1)
+            if [ -n "$ISAR_BUILD_GRADLE_KTS" ]; then
+              sed -i '/^android {/a\    namespace = "com.isar.flutter_libs"' "$ISAR_BUILD_GRADLE_KTS"
+              echo "Added namespace to isar_flutter_libs (kts)"
+            fi
+          fi
+
       # 5. 代码分析（只报告错误，warnings 和 infos 不阻断构建）
       - name: Analyze code
         run: flutter analyze --no-fatal-warnings --no-fatal-infos
