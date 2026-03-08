@@ -148,7 +148,16 @@ class SyncService {
       String? gistId = await _authService.getGistId();
 
       if (gistId == null) {
-        // 创建新的 Gist
+        // 本地没有 gistId，先从云端搜索现有的同步 Gist
+        gistId = await _findExistingGist();
+        if (gistId != null) {
+          // 找到现有的 Gist，保存到本地
+          await _authService.saveGistId(gistId);
+        }
+      }
+
+      if (gistId == null) {
+        // 仍然没有，创建新的 Gist
         gistId = await _createGist();
         await _authService.saveGistId(gistId);
       }
@@ -221,6 +230,22 @@ class SyncService {
     );
 
     return result['id'] as String;
+  }
+
+  /// 搜索用户现有的同步 Gist
+  /// 用于多设备同步：新设备可以从云端找到已有的 Gist
+  Future<String?> _findExistingGist() async {
+    try {
+      final gists = await _gistService.getGists();
+      for (final gist in gists) {
+        if (gist['description'] == '留白日记 - 数据同步') {
+          return gist['id'] as String;
+        }
+      }
+      return null;
+    } catch (e) {
+      return null;
+    }
   }
 
   /// 更新 Gist
