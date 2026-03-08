@@ -31,8 +31,10 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    // 初始化系统主题
-    _updateSystemTheme();
+    // 延迟初始化系统主题，避免在 build 期间修改状态
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _updateSystemTheme();
+    });
   }
 
   @override
