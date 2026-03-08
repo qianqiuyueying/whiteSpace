@@ -913,7 +913,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                   ? AppTheme.darkTextTertiary
                   : AppTheme.lightTextTertiary,
             )
-          : null,
+          : null),
       onTap: onTap,
     );
   }

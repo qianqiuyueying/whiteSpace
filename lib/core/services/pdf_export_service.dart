@@ -3,7 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
-import 'package:printing/printing.dart';
+// import 'package:printing/printing.dart';  // 暂时禁用
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:intl/intl.dart';
@@ -249,21 +249,15 @@ class PdfExportService {
   }
 
   /// 打印日记
+  /// 注意：printing 包已禁用，此功能暂时不可用
   Future<void> printDiary(DiaryEntry diary) async {
-    final bytes = await exportDiaryToPdf(diary);
-    await Printing.layoutPdf(
-      onLayout: (format) async => bytes,
-      name: diary.title ?? '日记',
-    );
+    throw UnimplementedError('打印功能已禁用');
   }
 
   /// 打印多篇日记
+  /// 注意：printing 包已禁用，此功能暂时不可用
   Future<void> printDiaries(List<DiaryEntry> diaries) async {
-    final bytes = await exportDiariesToPdf(diaries);
-    await Printing.layoutPdf(
-      onLayout: (format) async => bytes,
-      name: '日记导出',
-    );
+    throw UnimplementedError('打印功能已禁用');
   }
 
   /// 分享日记 PDF
