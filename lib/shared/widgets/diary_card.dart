@@ -10,6 +10,7 @@ class DiaryCard extends StatelessWidget {
   final List<String> tags;
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
+  final String? highlightText;
 
   const DiaryCard({
     super.key,
@@ -20,13 +21,14 @@ class DiaryCard extends StatelessWidget {
     this.tags = const [],
     this.onTap,
     this.onLongPress,
+    this.highlightText,
   });
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final mood = Mood.values[moodIndex];
-    
+
     return GestureDetector(
       onTap: onTap,
       onLongPress: onLongPress,
@@ -48,8 +50,8 @@ class DiaryCard extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: isDark 
-                  ? Colors.black.withOpacity(0.3) 
+              color: isDark
+                  ? Colors.black.withOpacity(0.3)
                   : Colors.white.withOpacity(0.3),
             ),
             child: Column(
@@ -107,38 +109,36 @@ class DiaryCard extends StatelessWidget {
                     ),
                   ],
                 ),
-                
+
                 const SizedBox(height: 16),
-                
+
                 // 标题
                 if (title != null && title!.isNotEmpty) ...[
-                  Text(
+                  _buildHighlightedText(
                     title!,
-                    style: const TextStyle(
+                    const TextStyle(
                       color: Colors.white,
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
                     ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                    1,
                   ),
                   const SizedBox(height: 8),
                 ],
-                
+
                 // 内容预览
-                Text(
+                _buildHighlightedText(
                   content,
-                  style: TextStyle(
+                  TextStyle(
                     color: Colors.white.withOpacity(0.9),
                     fontSize: 14,
                     height: 1.5,
                   ),
-                  maxLines: 3,
-                  overflow: TextOverflow.ellipsis,
+                  3,
                 ),
-                
+
                 const SizedBox(height: 12),
-                
+
                 // 底部时间
                 Text(
                   _formatTime(createdAt),
@@ -152,6 +152,61 @@ class DiaryCard extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+
+  /// 构建高亮文本
+  Widget _buildHighlightedText(String text, TextStyle style, int maxLines) {
+    if (highlightText == null || highlightText!.isEmpty) {
+      return Text(
+        text,
+        style: style,
+        maxLines: maxLines,
+        overflow: TextOverflow.ellipsis,
+      );
+    }
+
+    final lowerText = text.toLowerCase();
+    final lowerHighlight = highlightText!.toLowerCase();
+    final spans = <TextSpan>[];
+    var start = 0;
+
+    var index = lowerText.indexOf(lowerHighlight);
+    while (index != -1) {
+      // 添加高亮前的普通文本
+      if (index > start) {
+        spans.add(TextSpan(
+          text: text.substring(start, index),
+          style: style,
+        ));
+      }
+
+      // 添加高亮文本
+      spans.add(TextSpan(
+        text: text.substring(index, index + highlightText!.length),
+        style: style.copyWith(
+          backgroundColor: Colors.yellow.withOpacity(0.5),
+          color: Colors.black,
+          fontWeight: FontWeight.bold,
+        ),
+      ));
+
+      start = index + highlightText!.length;
+      index = lowerText.indexOf(lowerHighlight, start);
+    }
+
+    // 添加剩余文本
+    if (start < text.length) {
+      spans.add(TextSpan(
+        text: text.substring(start),
+        style: style,
+      ));
+    }
+
+    return Text.rich(
+      TextSpan(children: spans),
+      maxLines: maxLines,
+      overflow: TextOverflow.ellipsis,
     );
   }
 
@@ -176,7 +231,7 @@ class DiaryCard extends StatelessWidget {
     final today = DateTime(now.year, now.month, now.day);
     final yesterday = today.subtract(const Duration(days: 1));
     final dateDay = DateTime(date.year, date.month, date.day);
-    
+
     if (dateDay == today) {
       return '今天';
     } else if (dateDay == yesterday) {
@@ -206,4 +261,19 @@ enum Mood {
   final String emoji;
 
   const Mood(this.label, this.emoji);
+}
+
+/// 天气枚举
+enum Weather {
+  sunny('晴', '☀️'),
+  cloudy('多云', '⛅'),
+  rainy('雨', '🌧️'),
+  snowy('雪', '❄️'),
+  windy('风', '💨'),
+  foggy('雾', '🌫️');
+
+  final String label;
+  final String emoji;
+
+  const Weather(this.label, this.emoji);
 }

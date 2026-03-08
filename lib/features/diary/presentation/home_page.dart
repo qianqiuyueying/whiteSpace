@@ -233,6 +233,7 @@ class _HomePageState extends ConsumerState<HomePage> {
             createdAt: diary.createdAt,
             moodIndex: diary.moodIndex,
             tags: diary.tags,
+            highlightText: diaryState.searchQuery.isNotEmpty ? diaryState.searchQuery : null,
             onTap: () => context.push('/diary/${diary.id}'),
           )
               .animate()
