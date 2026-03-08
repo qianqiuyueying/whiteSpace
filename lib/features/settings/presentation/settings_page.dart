@@ -296,6 +296,13 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                       const SizedBox(height: 24),
                       _buildSection('数据管理', [
                         _buildListTile(
+                          icon: Icons.delete_outline_rounded,
+                          title: '回收站',
+                          subtitle: '查看已删除的日记',
+                          onTap: () => context.push('/trash'),
+                          isDark: isDark,
+                        ),
+                        _buildListTile(
                           icon: Icons.upload_file_rounded,
                           title: '导出日记',
                           subtitle: '导出为 JSON 格式',
