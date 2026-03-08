@@ -17,6 +17,9 @@ class AppTheme {
   static const Color primaryLight = Color(0xFF5C7BA8);
   static const Color primaryDark = Color(0xFF2B4058);
   
+  /// 次要色 - 兼容旧代码
+  static const Color secondaryColor = Color(0xFF5C7BA8);
+  
   /// 点缀色 - 朱砂红
   static const Color accentColor = Color(0xFFE07A5F);
   static const Color accentLight = Color(0xFFF2A990);
@@ -31,6 +34,7 @@ class AppTheme {
   /// 背景 - 温暖的米白色
   static const Color lightBackground = Color(0xFFFAF7F2);
   static const Color lightBackgroundSecondary = Color(0xFFF5F0E8);
+  static const Color lightSurface = Color(0xFFF5F0E8); // 兼容旧代码
   
   /// 卡片 - 奶油白
   static const Color lightCard = Color(0xFFFFFDF9);
@@ -52,6 +56,7 @@ class AppTheme {
   /// 背景 - 深墨色
   static const Color darkBackground = Color(0xFF1A1A1F);
   static const Color darkBackgroundSecondary = Color(0xFF242429);
+  static const Color darkSurface = Color(0xFF242429); // 兼容旧代码
   
   /// 卡片 - 暗灰
   static const Color darkCard = Color(0xFF2A2A30);
