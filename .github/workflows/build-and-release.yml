@@ -47,20 +47,27 @@ jobs:
       - name: Fix isar_flutter_libs namespace
         run: |
           # 找到 isar_flutter_libs 的 build.gradle 并添加 namespace
-          ISAR_BUILD_GRADLE=$(find /home/runner/.pub-cache/hosted/pub.dev -name "build.gradle" -path "*/isar_flutter_libs-*/android/build.gradle" 2>/dev/null | head -1)
-          if [ -n "$ISAR_BUILD_GRADLE" ]; then
-            echo "Found isar_flutter_libs build.gradle at: $ISAR_BUILD_GRADLE"
-            # 在 android 块中添加 namespace
-            sed -i '/^android {/a\    namespace "com.isar.flutter_libs"' "$ISAR_BUILD_GRADLE"
-            echo "Added namespace to isar_flutter_libs"
-          else
-            echo "isar_flutter_libs build.gradle not found, trying alternative method..."
-            # 尝试查找并修改 build.gradle.kts
-            ISAR_BUILD_GRADLE_KTS=$(find /home/runner/.pub-cache/hosted/pub.dev -name "build.gradle.kts" -path "*/isar_flutter_libs-*/android/" 2>/dev/null | head -1)
-            if [ -n "$ISAR_BUILD_GRADLE_KTS" ]; then
-              sed -i '/^android {/a\    namespace = "com.isar.flutter_libs"' "$ISAR_BUILD_GRADLE_KTS"
-              echo "Added namespace to isar_flutter_libs (kts)"
+          ISAR_DIR=$(find /home/runner/.pub-cache/hosted/pub.dev -type d -name "isar_flutter_libs-*" 2>/dev/null | head -1)
+          if [ -n "$ISAR_DIR" ]; then
+            ISAR_BUILD_GRADLE="$ISAR_DIR/android/build.gradle"
+            if [ -f "$ISAR_BUILD_GRADLE" ]; then
+              echo "Found isar_flutter_libs build.gradle at: $ISAR_BUILD_GRADLE"
+              # 检查是否已有 namespace
+              if ! grep -q "namespace" "$ISAR_BUILD_GRADLE"; then
+                # 在 android { 后添加 namespace
+                sed -i 's/^android {/android {\n    namespace "com.isar.flutter_libs"/' "$ISAR_BUILD_GRADLE"
+                echo "Added namespace to isar_flutter_libs build.gradle"
+                cat "$ISAR_BUILD_GRADLE"
+              else
+                echo "namespace already exists in isar_flutter_libs build.gradle"
+              fi
+            else
+              echo "build.gradle not found at: $ISAR_BUILD_GRADLE"
+              exit 1
             fi
+          else
+            echo "isar_flutter_libs directory not found"
+            exit 1
           fi
 
       # 5. 代码分析（只报告错误，warnings 和 infos 不阻断构建）

@@ -24,10 +24,3 @@ plugins {
 }
 
 include(":app")
-
-// 修复 isar_flutter_libs namespace 问题
-gradle.beforeProject {
-    if (project.name == "isar_flutter_libs") {
-        project.setProperty("android.namespace", "com.isar.flutter_libs")
-    }
-}
