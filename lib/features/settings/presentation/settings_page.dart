@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -19,6 +20,8 @@ import '../../auth/data/models/user_profile.dart';
 import '../../diary/presentation/diary_provider.dart';
 
 /// 设置页面
+/// 
+/// 设计理念：清晰的分组，优雅的卡片，舒适的阅读体验
 class SettingsPage extends ConsumerStatefulWidget {
   const SettingsPage({super.key});
 
@@ -46,6 +49,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       builder: (context) => AlertDialog(
         title: const Text('退出登录'),
         content: const Text('确定要退出登录吗？本地数据将被清除。'),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppTheme.radiusLG),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -53,7 +59,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            style: TextButton.styleFrom(foregroundColor: AppTheme.accentColor),
             child: const Text('退出'),
           ),
         ],
@@ -64,9 +70,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       await ref.read(authProvider.notifier).logout();
       final db = await ref.read(databaseServiceProvider.future);
       await db.close();
-      if (mounted) {
-        context.go('/login');
-      }
+      if (mounted) context.go('/login');
     }
   }
 
@@ -78,7 +82,13 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       if (diaries.isEmpty) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('没有日记可导出')),
+            SnackBar(
+              content: const Text('没有日记可导出'),
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppTheme.radiusMD),
+              ),
+            ),
           );
         }
         return;
@@ -92,14 +102,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       await file.writeAsString(json);
 
       if (mounted) {
-        await Share.shareXFiles(
-          [XFile(file.path)],
-          subject: '日记导出',
-        );
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('导出成功')),
-        );
+        await Share.shareXFiles([XFile(file.path)], subject: '日记导出');
       }
     } catch (e) {
       if (mounted) {
@@ -129,48 +132,15 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       ref.read(diaryListProvider.notifier).refresh();
 
       if (mounted) {
-        if (importResult.success) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('成功导入 ${importResult.count} 篇日记'),
-              action: importResult.errors.isNotEmpty
-                  ? SnackBarAction(
-                      label: '查看详情',
-                      onPressed: () {
-                        showDialog(
-                          context: context,
-                          builder: (context) => AlertDialog(
-                            title: const Text('导入详情'),
-                            content: SingleChildScrollView(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                mainAxisSize: MainAxisSize.min,
-                                children: importResult.errors
-                                    .map((e) => Padding(
-                                          padding: const EdgeInsets.only(bottom: 4),
-                                          child: Text(e),
-                                        ))
-                                    .toList(),
-                              ),
-                            ),
-                            actions: [
-                              TextButton(
-                                onPressed: () => Navigator.pop(context),
-                                child: const Text('确定'),
-                              ),
-                            ],
-                          ),
-                        );
-                      },
-                    )
-                  : null,
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('成功导入 ${importResult.count} 篇日记'),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppTheme.radiusMD),
             ),
-          );
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('导入失败: ${importResult.errors.first}')),
-          );
-        }
+          ),
+        );
       }
     } catch (e) {
       if (mounted) {
@@ -185,17 +155,16 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     setState(() => _isSyncing = true);
 
     try {
-      final syncService = ref.read(syncServiceProvider);
-      final result = await syncService.sync();
+      final result = await ref.read(syncServiceProvider).sync();
 
       if (mounted) {
         if (result.success) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('同步成功！上传 ${result.uploadedCount} 篇，下载 ${result.downloadedCount} 篇'),
-              action: SnackBarAction(
-                label: '查看 Gist',
-                onPressed: _openGistPage,
+              content: Text('同步成功，上传 ${result.uploadedCount} 篇，下载 ${result.downloadedCount} 篇'),
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppTheme.radiusMD),
               ),
             ),
           );
@@ -212,9 +181,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         );
       }
     } finally {
-      if (mounted) {
-        setState(() => _isSyncing = false);
-      }
+      if (mounted) setState(() => _isSyncing = false);
     }
   }
 
@@ -240,43 +207,23 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     final authState = ref.watch(authProvider);
     final user = authState.user;
 
-    return Scaffold(
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: isDark
-                ? [AppTheme.darkBackground, AppTheme.darkSurface]
-                : [AppTheme.lightBackground, AppTheme.lightSurface],
-          ),
-        ),
-        child: SafeArea(
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: isDark ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark,
+      child: Scaffold(
+        backgroundColor: isDark ? AppTheme.darkBackground : AppTheme.lightBackground,
+        body: SafeArea(
           child: Column(
             children: [
               _buildAppBar(context, isDark),
               Expanded(
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(20),
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
                   child: Column(
                     children: [
                       _buildUserCard(user, isDark),
-                      const SizedBox(height: 24),
+                      const SizedBox(height: 32),
                       _buildSection('数据同步', [
-                        _buildListTile(
-                          icon: Icons.sync_rounded,
-                          title: '立即同步',
-                          subtitle: '同步到 GitHub Gist',
-                          trailing: _isSyncing
-                              ? const SizedBox(
-                                  width: 20,
-                                  height: 20,
-                                  child: CircularProgressIndicator(strokeWidth: 2),
-                                )
-                              : const Icon(Icons.chevron_right_rounded),
-                          onTap: _isSyncing ? null : _syncNow,
-                          isDark: isDark,
-                        ),
+                        _buildSyncTile(isDark),
                         _buildListTile(
                           icon: Icons.open_in_new_rounded,
                           title: '查看 Gist',
@@ -285,7 +232,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                           isDark: isDark,
                         ),
                         _buildListTile(
-                          icon: Icons.cloud_done_rounded,
+                          icon: Icons.history_rounded,
                           title: '上次同步',
                           subtitle: user?.lastSyncAt != null
                               ? _formatDateTime(user!.lastSyncAt!)
@@ -329,19 +276,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                       ], isDark),
                       const SizedBox(height: 24),
                       _buildSection('外观', [
-                        _buildListTile(
-                          icon: Icons.dark_mode_rounded,
-                          title: '深色模式',
-                          subtitle: '跟随系统',
-                          trailing: Switch(
-                            value: _isDarkMode,
-                            onChanged: (value) {
-                              setState(() => _isDarkMode = value);
-                            },
-                            activeColor: AppTheme.primaryColor,
-                          ),
-                          isDark: isDark,
-                        ),
+                        _buildThemeTile(isDark),
                       ], isDark),
                       const SizedBox(height: 24),
                       _buildSection('关于', [
@@ -365,28 +300,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                         ),
                       ], isDark),
                       const SizedBox(height: 40),
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(horizontal: 20),
-                        child: OutlinedButton(
-                          onPressed: _logout,
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: Colors.red,
-                            side: const BorderSide(color: Colors.red),
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                          ),
-                          child: const Text(
-                            '退出登录',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ).animate().fadeIn(delay: 600.ms),
+                      _buildLogoutButton(isDark),
                       const SizedBox(height: 40),
                     ],
                   ),
@@ -401,22 +315,23 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
   Widget _buildAppBar(BuildContext context, bool isDark) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+      padding: const EdgeInsets.fromLTRB(8, 12, 20, 12),
       child: Row(
         children: [
           IconButton(
             onPressed: () => context.pop(),
             icon: Icon(
-              Icons.arrow_back_ios_rounded,
+              Icons.arrow_back_ios_new_rounded,
               color: isDark ? AppTheme.darkText : AppTheme.lightText,
             ),
           ),
           Text(
             '设置',
             style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w600,
+              fontSize: 24,
+              fontWeight: FontWeight.w700,
               color: isDark ? AppTheme.darkText : AppTheme.lightText,
+              letterSpacing: -0.5,
             ),
           ),
         ],
@@ -429,22 +344,23 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         gradient: AppTheme.primaryGradient,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(AppTheme.radiusLG),
         boxShadow: [
           BoxShadow(
-            color: AppTheme.primaryColor.withOpacity(0.3),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
+            color: (isDark ? AppTheme.primaryLight : AppTheme.primaryColor)
+                .withValues(alpha: 0.3),
+            blurRadius: 24,
+            offset: const Offset(0, 8),
           ),
         ],
       ),
       child: Row(
         children: [
           Container(
-            width: 60,
-            height: 60,
+            width: 56,
+            height: 56,
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
+              color: Colors.white.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(16),
             ),
             child: user?.avatarUrl != null
@@ -454,16 +370,16 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                       user!.avatarUrl!,
                       fit: BoxFit.cover,
                       errorBuilder: (_, __, ___) => const Icon(
-                        Icons.person,
+                        Icons.person_outline_rounded,
                         color: Colors.white,
-                        size: 32,
+                        size: 28,
                       ),
                     ),
                   )
                 : const Icon(
-                    Icons.person,
+                    Icons.person_outline_rounded,
                     color: Colors.white,
-                    size: 32,
+                    size: 28,
                   ),
           ),
           const SizedBox(width: 16),
@@ -476,15 +392,17 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 18,
-                    fontWeight: FontWeight.bold,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: -0.3,
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   'GitHub 账号已连接',
                   style: TextStyle(
-                    color: Colors.white.withOpacity(0.8),
+                    color: Colors.white.withValues(alpha: 0.8),
                     fontSize: 13,
+                    fontWeight: FontWeight.w400,
                   ),
                 ),
               ],
@@ -493,8 +411,8 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(20),
+              color: Colors.white.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(AppTheme.radiusXL),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
@@ -503,7 +421,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                   width: 8,
                   height: 8,
                   decoration: const BoxDecoration(
-                    color: Colors.green,
+                    color: Color(0xFF4CAF50),
                     shape: BoxShape.circle,
                   ),
                 ),
@@ -513,6 +431,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 12,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
               ],
@@ -520,7 +439,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           ),
         ],
       ),
-    ).animate().fadeIn().slideY(begin: -0.2, end: 0);
+    ).animate().fadeIn(duration: 300.ms).slideY(begin: -0.1, end: 0);
   }
 
   Widget _buildSection(String title, List<Widget> children, bool isDark) {
@@ -532,24 +451,134 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           child: Text(
             title,
             style: TextStyle(
-              fontSize: 14,
+              fontSize: 13,
               fontWeight: FontWeight.w600,
               color: isDark
                   ? AppTheme.darkTextSecondary
                   : AppTheme.lightTextSecondary,
+              letterSpacing: 0.3,
             ),
           ),
         ),
         Container(
           decoration: BoxDecoration(
             color: isDark ? AppTheme.darkCard : AppTheme.lightCard,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(AppTheme.radiusLG),
+            border: Border.all(
+              color: isDark ? AppTheme.darkBorder : AppTheme.lightBorder,
+              width: 1,
+            ),
           ),
           child: Column(
-            children: children,
+            children: _insertDividers(children, isDark),
           ),
         ),
       ],
+    );
+  }
+
+  List<Widget> _insertDividers(List<Widget> children, bool isDark) {
+    final result = <Widget>[];
+    for (var i = 0; i < children.length; i++) {
+      result.add(children[i]);
+      if (i < children.length - 1) {
+        result.add(Divider(
+          height: 1,
+          indent: 56,
+          color: isDark ? AppTheme.darkDivider : AppTheme.lightDivider,
+        ));
+      }
+    }
+    return result;
+  }
+
+  Widget _buildSyncTile(bool isDark) {
+    return ListTile(
+      leading: Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: (isDark ? AppTheme.primaryLight : AppTheme.primaryColor)
+              .withValues(alpha: isDark ? 0.15 : 0.1),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: _isSyncing
+            ? SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: isDark ? AppTheme.primaryLight : AppTheme.primaryColor,
+                ),
+              )
+            : Icon(
+                Icons.sync_rounded,
+                color: isDark ? AppTheme.primaryLight : AppTheme.primaryColor,
+                size: 20,
+              ),
+      ),
+      title: Text(
+        '立即同步',
+        style: TextStyle(
+          fontSize: 15,
+          fontWeight: FontWeight.w500,
+          color: isDark ? AppTheme.darkText : AppTheme.lightText,
+        ),
+      ),
+      subtitle: Text(
+        '同步到 GitHub Gist',
+        style: TextStyle(
+          fontSize: 13,
+          color: isDark
+              ? AppTheme.darkTextSecondary
+              : AppTheme.lightTextSecondary,
+        ),
+      ),
+      trailing: Icon(
+        Icons.chevron_right_rounded,
+        color: isDark
+            ? AppTheme.darkTextTertiary
+            : AppTheme.lightTextTertiary,
+      ),
+      onTap: _isSyncing ? null : _syncNow,
+    );
+  }
+
+  Widget _buildThemeTile(bool isDark) {
+    return ListTile(
+      leading: Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: (isDark ? AppTheme.primaryLight : AppTheme.primaryColor)
+              .withValues(alpha: isDark ? 0.15 : 0.1),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Icon(
+          Icons.dark_mode_outlined,
+          color: isDark ? AppTheme.primaryLight : AppTheme.primaryColor,
+          size: 20,
+        ),
+      ),
+      title: Text(
+        '深色模式',
+        style: TextStyle(
+          fontSize: 15,
+          fontWeight: FontWeight.w500,
+          color: isDark ? AppTheme.darkText : AppTheme.lightText,
+        ),
+      ),
+      subtitle: Text(
+        '跟随系统',
+        style: TextStyle(
+          fontSize: 13,
+          color: isDark
+              ? AppTheme.darkTextSecondary
+              : AppTheme.lightTextSecondary,
+        ),
+      ),
+      trailing: Switch(
+        value: _isDarkMode,
+        onChanged: (value) => setState(() => _isDarkMode = value),
+      ),
     );
   }
 
@@ -557,23 +586,27 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     required IconData icon,
     required String title,
     String? subtitle,
-    Widget? trailing,
     VoidCallback? onTap,
     required bool isDark,
   }) {
     return ListTile(
       leading: Container(
-        padding: const EdgeInsets.all(8),
+        padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
-          color: AppTheme.primaryColor.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(10),
+          color: (isDark ? AppTheme.primaryLight : AppTheme.primaryColor)
+              .withValues(alpha: isDark ? 0.15 : 0.1),
+          borderRadius: BorderRadius.circular(12),
         ),
-        child: Icon(icon, color: AppTheme.primaryColor, size: 22),
+        child: Icon(
+          icon,
+          color: isDark ? AppTheme.primaryLight : AppTheme.primaryColor,
+          size: 20,
+        ),
       ),
       title: Text(
         title,
         style: TextStyle(
-          fontSize: 16,
+          fontSize: 15,
           fontWeight: FontWeight.w500,
           color: isDark ? AppTheme.darkText : AppTheme.lightText,
         ),
@@ -589,15 +622,60 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               ),
             )
           : null,
-      trailing: trailing ?? const Icon(Icons.chevron_right_rounded),
+      trailing: onTap != null
+          ? Icon(
+              Icons.chevron_right_rounded,
+              color: isDark
+                  ? AppTheme.darkTextTertiary
+                  : AppTheme.lightTextTertiary,
+            )
+          : null,
       onTap: onTap,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
     );
   }
 
+  Widget _buildLogoutButton(bool isDark) {
+    return SizedBox(
+      width: double.infinity,
+      child: OutlinedButton(
+        onPressed: _logout,
+        style: OutlinedButton.styleFrom(
+          foregroundColor: AppTheme.accentColor,
+          side: BorderSide(
+            color: AppTheme.accentColor.withValues(alpha: 0.5),
+            width: 1.5,
+          ),
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppTheme.radiusLG),
+          ),
+        ),
+        child: const Text(
+          '退出登录',
+          style: TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 0.3,
+          ),
+        ),
+      ),
+    ).animate().fadeIn(delay: 400.ms);
+  }
+
   String _formatDateTime(DateTime date) {
-    return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')} ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+    final now = DateTime.now();
+    final diff = now.difference(date);
+
+    if (diff.inMinutes < 1) {
+      return '刚刚';
+    } else if (diff.inMinutes < 60) {
+      return '${diff.inMinutes}分钟前';
+    } else if (diff.inHours < 24) {
+      return '${diff.inHours}小时前';
+    } else if (diff.inDays < 7) {
+      return '${diff.inDays}天前';
+    } else {
+      return '${date.month}月${date.day}日';
+    }
   }
 }
