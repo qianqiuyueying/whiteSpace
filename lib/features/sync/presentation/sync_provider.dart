@@ -6,7 +6,6 @@ import '../../../core/services/database_service.dart';
 import '../../../core/services/gist_service.dart';
 import '../../../core/services/auth_service.dart';
 import '../../../core/constants/app_constants.dart';
-import '../../auth/data/models/user_profile.dart';
 import '../../diary/data/models/diary_entry.dart';
 
 /// 同步状态
@@ -173,8 +172,13 @@ class SyncService {
       // 5. 合并数据（带冲突检测）
       final mergeResult = await _mergeDiaries(localDiaries, cloudDiaries);
 
-      // 6. 更新 Gist（包含需要删除的文件）
-      await _updateGist(gistId, mergeResult.allDiaries, deletedUuids: mergeResult.deletedUuids);
+      // 6. 更新 Gist（包含需要删除的文件，并清理云端残留）
+      await _updateGist(
+        gistId,
+        mergeResult.allDiaries,
+        deletedUuids: mergeResult.deletedUuids,
+        cloudFiles: gist['files'] as Map<String, dynamic>?,
+      );
 
       // 7. 更新同步时间
       await _databaseService.updateLastSyncTime();
@@ -220,18 +224,28 @@ class SyncService {
   }
 
   /// 更新 Gist
-  Future<void> _updateGist(String gistId, List<DiaryEntry> diaries, {List<String> deletedUuids = const []}) async {
+  /// [cloudFiles] 云端现有文件列表，用于清理云端残留文件
+  Future<void> _updateGist(
+    String gistId,
+    List<DiaryEntry> diaries, {
+    List<String> deletedUuids = const [],
+    Map<String, dynamic>? cloudFiles,
+  }) async {
     final files = <String, String?>{};
 
     // 更新标签文件
     final tags = await _databaseService.getAllTags();
     files[AppConstants.tagsFile] = jsonEncode(tags.toList());
 
+    // 本地有效的日记UUID集合
+    final localUuids = <String>{};
+
     // 更新日记文件
     for (final diary in diaries) {
       if (!diary.isDeleted) {
         final fileName = '${AppConstants.diaryFilePrefix}${diary.uuid}.json';
         files[fileName] = jsonEncode(diary.toJson());
+        localUuids.add(diary.uuid);
       }
     }
 
@@ -239,6 +253,22 @@ class SyncService {
     for (final uuid in deletedUuids) {
       final fileName = '${AppConstants.diaryFilePrefix}$uuid.json';
       files[fileName] = null; // 设置为 null 表示删除文件
+    }
+
+    // 清理云端残留文件：云端有但本地没有的日记文件
+    if (cloudFiles != null) {
+      for (final fileName in cloudFiles.keys) {
+        if (fileName.startsWith(AppConstants.diaryFilePrefix)) {
+          // 提取UUID
+          final uuid = fileName
+              .replaceFirst(AppConstants.diaryFilePrefix, '')
+              .replaceAll('.json', '');
+          // 如果本地没有这个UUID，删除云端文件
+          if (!localUuids.contains(uuid) && !deletedUuids.contains(uuid)) {
+            files[fileName] = null;
+          }
+        }
+      }
     }
 
     await _gistService.updateGist(gistId: gistId, files: files);
@@ -362,8 +392,12 @@ class SyncService {
         gistId = await _createGist();
         await _authService.saveGistId(gistId);
       } else {
+        // 获取云端现有文件，用于清理残留
+        final gist = await _gistService.getGist(gistId);
+        final cloudFiles = gist?['files'] as Map<String, dynamic>?;
+
         final diaries = await _databaseService.getAllDiaries();
-        await _updateGist(gistId, diaries);
+        await _updateGist(gistId, diaries, cloudFiles: cloudFiles);
       }
 
       await _databaseService.updateLastSyncTime();
@@ -405,6 +439,23 @@ class SyncService {
       );
     } catch (e) {
       return SyncResult(success: false, error: e.toString());
+    }
+  }
+
+  /// 立即从云端删除日记文件
+  /// 用于本地删除日记后立即同步删除云端文件
+  Future<bool> deleteDiaryFromCloud(String uuid) async {
+    try {
+      final gistId = await _authService.getGistId();
+      if (gistId == null) {
+        return false;
+      }
+
+      final fileName = '${AppConstants.diaryFilePrefix}$uuid.json';
+      await _gistService.updateGist(gistId: gistId, files: {fileName: null});
+      return true;
+    } catch (e) {
+      return false;
     }
   }
 }

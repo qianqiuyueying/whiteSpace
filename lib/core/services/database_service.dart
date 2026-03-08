@@ -85,7 +85,14 @@ class DatabaseService {
   }
 
   /// 保存日记
+  /// 如果存在相同UUID的日记，会更新现有记录
   Future<int> saveDiary(DiaryEntry entry) async {
+    // 检查是否存在相同UUID的日记
+    final existing = await getDiaryByUuid(entry.uuid);
+    if (existing != null) {
+      // 保留原有ID，更新现有记录
+      entry.id = existing.id;
+    }
     entry.updatedAt = DateTime.now();
     return isar.writeTxn(() => isar.diaryEntrys.put(entry));
   }

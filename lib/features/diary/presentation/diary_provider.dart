@@ -3,8 +3,6 @@ import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/services/database_service.dart';
-import '../../../core/services/gist_service.dart';
-import '../../../core/services/auth_service.dart';
 import '../../sync/presentation/sync_provider.dart';
 import '../data/models/diary_entry.dart';
 
@@ -125,11 +123,9 @@ final tagsProvider = FutureProvider<Set<String>>((ref) async {
 /// 日记操作服务
 class DiaryService {
   final DatabaseService _databaseService;
-  final GistService _gistService;
-  final AuthService _authService;
   final Ref _ref;
 
-  DiaryService(this._databaseService, this._gistService, this._authService, this._ref);
+  DiaryService(this._databaseService, this._ref);
 
   /// 创建日记
   Future<DiaryEntry> createDiary({
@@ -161,14 +157,36 @@ class DiaryService {
     _triggerAutoSync();
   }
 
-  /// 删除日记
-  Future<void> deleteDiary(int id) async {
+  /// 删除日记（软删除）
+  /// [deleteFromCloud] 是否立即从云端删除，默认为true
+  Future<void> deleteDiary(int id, {bool deleteFromCloud = true}) async {
+    final entry = await _databaseService.getDiaryById(id);
+    if (entry == null) return;
+
+    // 先从云端删除（在本地标记删除之前）
+    if (deleteFromCloud) {
+      final syncService = _ref.read(syncServiceProvider);
+      await syncService.deleteDiaryFromCloud(entry.uuid);
+    }
+
+    // 再本地软删除
     await _databaseService.deleteDiary(id);
     _triggerAutoSync();
   }
 
   /// 永久删除日记
-  Future<void> permanentlyDeleteDiary(int id) async {
+  /// [deleteFromCloud] 是否立即从云端删除，默认为true
+  Future<void> permanentlyDeleteDiary(int id, {bool deleteFromCloud = true}) async {
+    final entry = await _databaseService.getDiaryById(id);
+    if (entry == null) return;
+
+    // 先从云端删除
+    if (deleteFromCloud) {
+      final syncService = _ref.read(syncServiceProvider);
+      await syncService.deleteDiaryFromCloud(entry.uuid);
+    }
+
+    // 再本地永久删除
     await _databaseService.permanentlyDeleteDiary(id);
     _triggerAutoSync();
   }
@@ -224,13 +242,11 @@ class DiaryService {
 /// 日记服务 Provider
 final diaryServiceProvider = Provider<DiaryService>((ref) {
   final databaseService = ref.watch(databaseServiceProvider).valueOrNull;
-  final gistService = ref.watch(gistServiceProvider);
-  final authService = ref.watch(authServiceProvider);
 
   if (databaseService == null) {
     throw StateError('Database not initialized');
   }
 
-  return DiaryService(databaseService, gistService, authService, ref);
+  return DiaryService(databaseService, ref);
 });
 
