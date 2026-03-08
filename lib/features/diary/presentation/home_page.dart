@@ -101,6 +101,13 @@ class _HomePageState extends ConsumerState<HomePage> {
                     ),
                   ),
                   IconButton(
+                    onPressed: () => context.push('/tags'),
+                    icon: Icon(
+                      Icons.label_outline_rounded,
+                      color: isDark ? AppTheme.darkText : AppTheme.lightText,
+                    ),
+                  ),
+                  IconButton(
                     onPressed: () => context.push('/stats'),
                     icon: Icon(
                       Icons.bar_chart_rounded,
