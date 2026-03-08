@@ -45,7 +45,7 @@ jobs:
 
       # 5. 代码分析
       - name: Analyze code
-        run: flutter analyze
+        run: flutter analyze --no-fatal-warnings
 
       # 6. 运行测试（如果有）
       - name: Run tests

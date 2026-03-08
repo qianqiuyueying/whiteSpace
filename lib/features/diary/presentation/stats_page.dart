@@ -142,10 +142,6 @@ class _StatsPageState extends ConsumerState<StatsPage> with TickerProviderStateM
   Widget _buildOverviewCards(bool isDark) {
     final totalDiaries = _diaries.length;
     final totalWords = _diaries.fold<int>(0, (sum, d) => sum + d.content.length);
-    final totalDays = _diaries.isEmpty
-        ? 0
-        : DateTime.now().difference(_diaries.last.createdAt).inDays + 1;
-    final avgWords = totalDiaries > 0 ? (totalWords / totalDiaries).round() : 0;
 
     return Row(
       children: [
