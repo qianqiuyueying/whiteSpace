@@ -86,7 +86,7 @@ class GistService {
   Future<Map<String, dynamic>> updateGist({
     required String gistId,
     String? description,
-    Map<String, String>? files,
+    Map<String, String?>? files,
   }) async {
     try {
       final data = <String, dynamic>{};
@@ -94,7 +94,13 @@ class GistService {
         data['description'] = description;
       }
       if (files != null) {
-        data['files'] = files.map((key, value) => MapEntry(key, {'content': value}));
+        data['files'] = files.map((key, value) {
+          if (value == null) {
+            // null 表示删除文件
+            return MapEntry(key, null);
+          }
+          return MapEntry(key, {'content': value});
+        });
       }
       final response = await _dio.patch('/gists/$gistId', data: data);
       return response.data;

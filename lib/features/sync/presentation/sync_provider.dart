@@ -163,8 +163,9 @@ class SyncService {
         return const SyncResult(success: true);
       }
 
-      // 3. 解析云端数据
-      final cloudDiaries = await _parseGistFiles(gist['files'] as Map<String, dynamic>);
+      // 3. 解析云端数据（包含日记和标签）
+      final parseResult = await _parseGistFiles(gist['files'] as Map<String, dynamic>);
+      final cloudDiaries = parseResult.diaries;
 
       // 4. 获取本地数据
       final localDiaries = await _databaseService.getAllDiaries(includeDeleted: true);
@@ -172,8 +173,8 @@ class SyncService {
       // 5. 合并数据（带冲突检测）
       final mergeResult = await _mergeDiaries(localDiaries, cloudDiaries);
 
-      // 6. 更新 Gist
-      await _updateGist(gistId, mergeResult.allDiaries);
+      // 6. 更新 Gist（包含需要删除的文件）
+      await _updateGist(gistId, mergeResult.allDiaries, deletedUuids: mergeResult.deletedUuids);
 
       // 7. 更新同步时间
       await _databaseService.updateLastSyncTime();
@@ -219,8 +220,8 @@ class SyncService {
   }
 
   /// 更新 Gist
-  Future<void> _updateGist(String gistId, List<DiaryEntry> diaries) async {
-    final files = <String, String>{};
+  Future<void> _updateGist(String gistId, List<DiaryEntry> diaries, {List<String> deletedUuids = const []}) async {
+    final files = <String, String?>{};
 
     // 更新标签文件
     final tags = await _databaseService.getAllTags();
@@ -234,26 +235,44 @@ class SyncService {
       }
     }
 
+    // 删除云端已删除的日记文件
+    for (final uuid in deletedUuids) {
+      final fileName = '${AppConstants.diaryFilePrefix}$uuid.json';
+      files[fileName] = null; // 设置为 null 表示删除文件
+    }
+
     await _gistService.updateGist(gistId: gistId, files: files);
   }
 
   /// 解析 Gist 文件
-  Future<List<DiaryEntry>> _parseGistFiles(Map<String, dynamic> files) async {
-    final diaries = <DiaryEntry>[];
+  Future<_GistParseResult> _parseGistFiles(Map<String, dynamic> files) async {
+    final result = _GistParseResult();
 
     for (final entry in files.entries) {
-      if (entry.key.startsWith(AppConstants.diaryFilePrefix)) {
-        try {
-          final content = entry.value['content'] as String;
+      try {
+        final content = entry.value['content'] as String;
+        
+        if (entry.key.startsWith(AppConstants.diaryFilePrefix)) {
+          // 解析日记文件
           final json = jsonDecode(content) as Map<String, dynamic>;
-          diaries.add(DiaryEntry.fromJson(json));
-        } catch (e) {
-          // 忽略解析错误的文件
+          result.diaries.add(DiaryEntry.fromJson(json));
+        } else if (entry.key == AppConstants.tagsFile) {
+          // 解析标签文件
+          final List<dynamic> tagsJson = jsonDecode(content);
+          for (final tagJson in tagsJson) {
+            if (tagJson is Map<String, dynamic>) {
+              result.tags.add(tagJson['name'] as String);
+            } else if (tagJson is String) {
+              result.tags.add(tagJson);
+            }
+          }
         }
+      } catch (e) {
+        // 忽略解析错误的文件
       }
     }
 
-    return diaries;
+    return result;
   }
 
   /// 合并日记数据（带冲突检测）
@@ -265,18 +284,43 @@ class SyncService {
     final allDiaries = <String, DiaryEntry>{};
 
     // 建立云端数据索引
+    final cloudDiariesMap = <String, DiaryEntry>{};
     for (final cloud in cloudDiaries) {
-      allDiaries[cloud.uuid] = cloud;
+      cloudDiariesMap[cloud.uuid] = cloud;
     }
 
     // 处理本地数据
     for (final local in localDiaries) {
-      final cloud = allDiaries[local.uuid];
+      final cloud = cloudDiariesMap[local.uuid];
 
       if (cloud == null) {
-        // 云端没有，需要上传
+        // 云端没有此日记
+        if (local.isDeleted) {
+          // 本地已删除且云端没有，跳过（不需要上传）
+          continue;
+        }
+        // 本地有但云端没有，需要上传
         result.uploadedCount++;
         allDiaries[local.uuid] = local;
+      } else if (cloud.isDeleted) {
+        // 云端已删除，本地也应该删除
+        if (!local.isDeleted) {
+          await _databaseService.deleteDiary(local.id);
+        }
+        // 记录需要从云端删除的 UUID
+        result.deletedUuids.add(cloud.uuid);
+      } else if (local.isDeleted) {
+        // 本地已删除但云端未删除
+        // 以最新的为准
+        if (local.updatedAt.isAfter(cloud.updatedAt)) {
+          // 本地删除操作更新，需要从云端删除
+          result.deletedUuids.add(local.uuid);
+        } else {
+          // 云端更新，恢复本地日记
+          result.downloadedCount++;
+          await _databaseService.saveDiary(cloud);
+          allDiaries[local.uuid] = cloud;
+        }
       } else if (local.updatedAt.isAfter(cloud.updatedAt)) {
         // 本地更新，需要上传
         result.uploadedCount++;
@@ -294,9 +338,13 @@ class SyncService {
 
     // 处理云端新增的数据
     for (final cloud in cloudDiaries) {
-      if (!allDiaries.containsKey(cloud.uuid)) {
-        result.downloadedCount++;
-        await _databaseService.saveDiary(cloud);
+      if (!allDiaries.containsKey(cloud.uuid) && !cloud.isDeleted) {
+        // 本地没有且云端未删除，需要下载
+        final localExists = localDiaries.any((d) => d.uuid == cloud.uuid);
+        if (!localExists) {
+          result.downloadedCount++;
+          await _databaseService.saveDiary(cloud);
+        }
         allDiaries[cloud.uuid] = cloud;
       }
     }
@@ -338,17 +386,22 @@ class SyncService {
         return const SyncResult(success: false, error: '云端数据不存在');
       }
 
-      final cloudDiaries = await _parseGistFiles(gist['files'] as Map<String, dynamic>);
+      final parseResult = await _parseGistFiles(gist['files'] as Map<String, dynamic>);
+      final cloudDiaries = parseResult.diaries;
 
-      // 保存云端数据
+      // 保存云端数据（跳过已删除的）
+      int downloadedCount = 0;
       for (final diary in cloudDiaries) {
-        await _databaseService.saveDiary(diary);
+        if (!diary.isDeleted) {
+          await _databaseService.saveDiary(diary);
+          downloadedCount++;
+        }
       }
 
       await _databaseService.updateLastSyncTime();
       return SyncResult(
         success: true,
-        downloadedCount: cloudDiaries.length,
+        downloadedCount: downloadedCount,
       );
     } catch (e) {
       return SyncResult(success: false, error: e.toString());
@@ -359,8 +412,15 @@ class SyncService {
 /// 合并结果
 class _MergeResult {
   List<DiaryEntry> allDiaries = [];
+  List<String> deletedUuids = []; // 需要从云端删除的日记 UUID
   int uploadedCount = 0;
   int downloadedCount = 0;
+}
+
+/// Gist 解析结果
+class _GistParseResult {
+  List<DiaryEntry> diaries = [];
+  Set<String> tags = {};
 }
 
 /// 同步服务 Provider
