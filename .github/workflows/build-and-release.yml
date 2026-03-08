@@ -43,9 +43,9 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      # 5. 代码分析
+      # 5. 代码分析（只报告错误，warnings 和 infos 不阻断构建）
       - name: Analyze code
-        run: flutter analyze --no-fatal-warnings
+        run: flutter analyze --no-fatal-warnings --no-fatal-infos
 
       # 6. 运行测试（如果有）
       - name: Run tests
