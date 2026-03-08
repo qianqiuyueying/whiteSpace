@@ -15,11 +15,23 @@ allprojects {
     }
 }
 
-// 修复 isar_flutter_libs namespace 问题
+// 修复 isar_flutter_libs 的 AndroidManifest.xml package 属性问题和 compileSdk 问题
 subprojects {
-    if (project.name == "isar_flutter_libs") {
-        project.extensions.findByType<com.android.build.gradle.LibraryExtension>()?.apply {
-            namespace = "com.isar.flutter_libs"
+    afterEvaluate {
+        if (project.name == "isar_flutter_libs") {
+            // 修复 AndroidManifest.xml 中的 package 属性
+            val manifestFile = file("src/main/AndroidManifest.xml")
+            if (manifestFile.exists()) {
+                var content = manifestFile.readText()
+                if (content.contains("package=")) {
+                    content = content.replace(Regex("""\s*package="[^"]*""""), "")
+                    manifestFile.writeText(content)
+                }
+            }
+            // 强制使用更高的 compileSdk
+            project.extensions.findByType<com.android.build.gradle.LibraryExtension>()?.apply {
+                compileSdk = 34
+            }
         }
     }
 }

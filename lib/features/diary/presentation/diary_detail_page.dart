@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -7,6 +9,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/services/database_service.dart';
+import '../../../core/services/image_service.dart';
 import '../data/models/diary_entry.dart';
 import 'diary_provider.dart';
 import '../../../shared/widgets/diary_card.dart';
@@ -425,6 +428,8 @@ class _DiaryDetailPageState extends ConsumerState<DiaryDetailPage> {
   }
 
   Widget _buildImageSection(bool isDark) {
+    final imageService = ref.read(imageServiceProvider);
+    
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -444,13 +449,16 @@ class _DiaryDetailPageState extends ConsumerState<DiaryDetailPage> {
             itemCount: _diary!.images.length,
             separatorBuilder: (_, __) => const SizedBox(width: 12),
             itemBuilder: (context, index) {
+              final imageUuid = _diary!.images[index];
+              final imagePath = imageService.getImagePath(imageUuid);
+              
               return Container(
                 width: 120,
                 height: 120,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(AppTheme.radiusMD),
                   image: DecorationImage(
-                    image: AssetImage(_diary!.images[index]),
+                    image: FileImage(File(imagePath)),
                     fit: BoxFit.cover,
                   ),
                 ),

@@ -97,6 +97,8 @@ class _DiaryEditPageState extends ConsumerState<DiaryEditPage> {
         _selectedMood = diary.moodIndex;
         _selectedWeather = diary.weatherIndex;
         _tags = List.from(diary.tags);
+        // 将 Isar 返回的固定长度列表转换为可变列表
+        _existingDiary!.images = List.from(diary.images);
       });
     }
   }
@@ -230,7 +232,9 @@ class _DiaryEditPageState extends ConsumerState<DiaryEditPage> {
   void _removeImage(int index) {
     setState(() {
       if (_existingDiary != null) {
-        _existingDiary!.images.removeAt(index);
+        final newImages = List<String>.from(_existingDiary!.images);
+        newImages.removeAt(index);
+        _existingDiary!.images = newImages;
       } else {
         _tempImages.removeAt(index);
       }
@@ -622,6 +626,8 @@ class _DiaryEditPageState extends ConsumerState<DiaryEditPage> {
     final images = _existingDiary?.images ?? _tempImages;
     if (images.isEmpty) return const SizedBox.shrink();
 
+    final imageService = ref.read(imageServiceProvider);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -642,6 +648,9 @@ class _DiaryEditPageState extends ConsumerState<DiaryEditPage> {
             itemCount: images.length,
             separatorBuilder: (_, __) => const SizedBox(width: 12),
             itemBuilder: (context, index) {
+              final imageUuid = images[index];
+              final imagePath = imageService.getImagePath(imageUuid);
+              
               return Stack(
                 children: [
                   Container(
@@ -650,7 +659,7 @@ class _DiaryEditPageState extends ConsumerState<DiaryEditPage> {
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(AppTheme.radiusMD),
                       image: DecorationImage(
-                        image: FileImage(File(images[index])),
+                        image: FileImage(File(imagePath)),
                         fit: BoxFit.cover,
                       ),
                     ),

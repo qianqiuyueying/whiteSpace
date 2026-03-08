@@ -166,7 +166,7 @@ class DiaryService {
     // 先从云端删除（在本地标记删除之前）
     if (deleteFromCloud) {
       final syncService = _ref.read(syncServiceProvider);
-      await syncService.deleteDiaryFromCloud(entry.uuid);
+      await syncService.deleteDiaryFromCloud(entry.uuid, entry.images);
     }
 
     // 再本地软删除
@@ -183,7 +183,7 @@ class DiaryService {
     // 先从云端删除
     if (deleteFromCloud) {
       final syncService = _ref.read(syncServiceProvider);
-      await syncService.deleteDiaryFromCloud(entry.uuid);
+      await syncService.deleteDiaryFromCloud(entry.uuid, entry.images);
     }
 
     // 再本地永久删除

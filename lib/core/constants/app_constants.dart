@@ -17,6 +17,7 @@ class AppConstants {
   
   // 数据格式
   static const String diaryFilePrefix = 'diary_';
+  static const String imageFilePrefix = 'image_';
   static const String configFile = 'config.json';
   static const String tagsFile = 'tags.json';
 }

@@ -587,3 +587,302 @@ class ThemeColors {
     Color(0xFF6B8E8E), // 青瓷
   ];
 }
+
+/// ═══════════════════════════════════════════════════════════════════════════
+/// 纸墨流年 - 扩展装饰色系
+/// ═══════════════════════════════════════════════════════════════════════════
+
+/// 水墨色系 - 用于背景和装饰
+class InkColors {
+  /// 淡墨
+  static const Color lightInk = Color(0xFFE8E4DC);
+  /// 中墨
+  static const Color mediumInk = Color(0xFF8B8680);
+  /// 浓墨
+  static const Color darkInk = Color(0xFF3D3D3D);
+  /// 焦墨
+  static const Color deepInk = Color(0xFF1A1A1A);
+  
+  /// 深色模式下的水墨色
+  static const Color darkModeLightInk = Color(0xFF4A4A50);
+  static const Color darkModeMediumInk = Color(0xFF6A6A70);
+}
+
+/// 印章色系 - 用于点缀和强调
+class SealColors {
+  /// 朱砂红
+  static const Color vermilion = Color(0xFFE07A5F);
+  /// 丹红
+  static const Color cinnabar = Color(0xFFC75B5B);
+  /// 印泥红
+  static const Color pasteRed = Color(0xFFB8433F);
+  
+  /// 金印
+  static const Color goldSeal = Color(0xFFD4A574);
+  /// 银印
+  static const Color silverSeal = Color(0xFF9A9A9A);
+}
+
+/// 心情色系 - 用于心情指示
+class MoodColors {
+  /// 开心 - 暖阳金
+  static const Color happy = Color(0xFFF2A950);
+  /// 平静 - 湖水蓝
+  static const Color calm = Color(0xFF6B8E9F);
+  /// 难过 - 淡紫灰
+  static const Color sad = Color(0xFF7A7A9E);
+  /// 生气 - 朱砂红
+  static const Color angry = Color(0xFFC75B5B);
+  /// 焦虑 - 赭石
+  static const Color anxious = Color(0xFF8B7355);
+  /// 兴奋 - 珊瑚橙
+  static const Color excited = Color(0xFFE07A5F);
+  /// 疲惫 - 青灰
+  static const Color tired = Color(0xFF6B8E8E);
+  /// 一般 - 靛蓝
+  static const Color neutral = Color(0xFF3D5A80);
+  
+  /// 获取心情对应的颜色
+  static Color getMoodColor(int index) {
+    const colors = [
+      happy, calm, sad, angry, anxious, excited, tired, neutral
+    ];
+    return colors[index.clamp(0, colors.length - 1)];
+  }
+  
+  /// 获取心情对应的渐变
+  static LinearGradient getMoodGradient(int index) {
+    final color = getMoodColor(index);
+    return LinearGradient(
+      begin: Alignment.topCenter,
+      end: Alignment.bottomCenter,
+      colors: [
+        color,
+        color.withValues(alpha: 0.7),
+      ],
+    );
+  }
+}
+
+/// 纸张色系 - 用于背景和卡片
+class PaperColors {
+  /// 宣纸白
+  static const Color xuanPaper = Color(0xFFFAF7F2);
+  /// 毛边纸
+  static const Color roughPaper = Color(0xFFF5F0E8);
+  /// 道林纸
+  static const Color daoLinPaper = Color(0xFFFFFDF9);
+  /// 牛皮纸
+  static const Color kraftPaper = Color(0xFFE8DFD0);
+  
+  /// 深色模式纸张
+  static const Color darkPaper = Color(0xFF2A2A30);
+  static const Color darkPaperSecondary = Color(0xFF333339);
+}
+
+/// ═══════════════════════════════════════════════════════════════════════════
+/// 扩展渐变效果
+/// ═══════════════════════════════════════════════════════════════════════════
+
+class AppGradients {
+  /// 水墨渐变 - 浅色模式
+  static const LinearGradient inkWashLight = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [
+      Color(0xFFFAF7F2),
+      Color(0xFFF5F0E8),
+      Color(0xFFFAF7F2),
+    ],
+    stops: [0.0, 0.5, 1.0],
+  );
+  
+  /// 水墨渐变 - 深色模式
+  static const LinearGradient inkWashDark = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [
+      Color(0xFF1A1A1F),
+      Color(0xFF1E1E24),
+      Color(0xFF1A1A1F),
+    ],
+    stops: [0.0, 0.5, 1.0],
+  );
+  
+  /// 印章渐变
+  static const LinearGradient sealGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [
+      Color(0xFFE07A5F),
+      Color(0xFFC75B5B),
+    ],
+  );
+  
+  /// 金色渐变
+  static const LinearGradient goldGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [
+      Color(0xFFD4A574),
+      Color(0xFFC49A6C),
+    ],
+  );
+  
+  /// 玻璃效果渐变
+  static LinearGradient glassGradient(bool isDark) => LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [
+      (isDark ? Colors.white : Colors.black).withValues(alpha: 0.05),
+      (isDark ? Colors.white : Colors.black).withValues(alpha: 0.02),
+    ],
+  );
+  
+  /// 光晕效果
+  static RadialGradient glowGradient(Color color, {double opacity = 0.3}) => RadialGradient(
+    center: Alignment.center,
+    radius: 0.8,
+    colors: [
+      color.withValues(alpha: opacity),
+      color.withValues(alpha: opacity * 0.5),
+      Colors.transparent,
+    ],
+    stops: const [0.0, 0.5, 1.0],
+  );
+}
+
+/// ═══════════════════════════════════════════════════════════════════════════
+/// 扩展阴影效果
+/// ═══════════════════════════════════════════════════════════════════════════
+
+class AppShadows {
+  /// 水墨阴影 - 模拟墨迹扩散
+  static List<BoxShadow> inkShadow(bool isDark) => [
+    BoxShadow(
+      color: isDark
+          ? Colors.black.withValues(alpha: 0.4)
+          : InkColors.darkInk.withValues(alpha: 0.08),
+      blurRadius: 30,
+      spreadRadius: -5,
+      offset: const Offset(0, 10),
+    ),
+    BoxShadow(
+      color: isDark
+          ? Colors.black.withValues(alpha: 0.2)
+          : InkColors.mediumInk.withValues(alpha: 0.05),
+      blurRadius: 15,
+      offset: const Offset(0, 4),
+    ),
+  ];
+  
+  /// 浮动阴影 - 用于悬浮元素
+  static List<BoxShadow> floatingShadow(bool isDark) => [
+    BoxShadow(
+      color: isDark
+          ? Colors.black.withValues(alpha: 0.5)
+          : AppTheme.primaryColor.withValues(alpha: 0.12),
+      blurRadius: 40,
+      spreadRadius: -10,
+      offset: const Offset(0, 20),
+    ),
+  ];
+  
+  /// 发光阴影 - 用于强调元素
+  static List<BoxShadow> glowShadow(Color color, {double opacity = 0.4}) => [
+    BoxShadow(
+      color: color.withValues(alpha: opacity),
+      blurRadius: 20,
+      spreadRadius: 2,
+    ),
+    BoxShadow(
+      color: color.withValues(alpha: opacity * 0.5),
+      blurRadius: 40,
+      spreadRadius: 4,
+    ),
+  ];
+  
+  /// 内阴影效果 - 用于凹陷元素
+  static List<BoxShadow> innerShadow(bool isDark) => [
+    BoxShadow(
+      color: isDark
+          ? Colors.black.withValues(alpha: 0.3)
+          : Colors.white.withValues(alpha: 0.8),
+      blurRadius: 0,
+      offset: const Offset(0, 1),
+    ),
+    BoxShadow(
+      color: isDark
+          ? Colors.white.withValues(alpha: 0.05)
+          : Colors.black.withValues(alpha: 0.05),
+      blurRadius: 0,
+      offset: const Offset(0, -1),
+    ),
+  ];
+}
+
+/// ═══════════════════════════════════════════════════════════════════════════
+/// 装饰性边框
+/// ═══════════════════════════════════════════════════════════════════════════
+
+class AppBorders {
+  /// 水墨边框
+  static Border inkBorder(bool isDark, {double width = 1}) => Border.all(
+    color: isDark ? InkColors.darkModeLightInk : InkColors.lightInk,
+    width: width,
+  );
+  
+  /// 印章边框
+  static Border sealBorder({double width = 2}) => Border.all(
+    color: SealColors.vermilion,
+    width: width,
+  );
+  
+  /// 金色边框
+  static Border goldBorder({double width = 1}) => Border.all(
+    color: SealColors.goldSeal,
+    width: width,
+  );
+  
+  /// 渐变边框装饰
+  static BoxDecoration gradientBorder({
+    required Gradient gradient,
+    required double radius,
+    double borderWidth = 2,
+  }) => BoxDecoration(
+    borderRadius: BorderRadius.circular(radius),
+    gradient: gradient,
+  );
+}
+
+/// ═══════════════════════════════════════════════════════════════════════════
+/// 动画时长预设
+/// ═══════════════════════════════════════════════════════════════════════════
+
+class AnimationDurations {
+  /// 快速 - 用于微交互
+  static const Duration fast = Duration(milliseconds: 150);
+  /// 普通 - 用于常规动画
+  static const Duration normal = Duration(milliseconds: 300);
+  /// 慢速 - 用于强调动画
+  static const Duration slow = Duration(milliseconds: 500);
+  /// 弹性 - 用于特殊效果
+  static const Duration elastic = Duration(milliseconds: 600);
+  /// 页面转场
+  static const Duration pageTransition = Duration(milliseconds: 400);
+}
+
+/// ═══════════════════════════════════════════════════════════════════════════
+/// 动画曲线预设
+/// ═══════════════════════════════════════════════════════════════════════════
+
+class AnimationCurves {
+  /// 水墨扩散
+  static const Curve inkSpread = Curves.easeOutCubic;
+  /// 弹性回弹
+  static const Curve bounce = Curves.elasticOut;
+  /// 平滑过渡
+  static const Curve smooth = Curves.easeInOutCubic;
+  /// 强调出现
+  static const Curve emphasize = Curves.easeOutBack;
+}

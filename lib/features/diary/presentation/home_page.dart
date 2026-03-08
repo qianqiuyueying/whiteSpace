@@ -6,13 +6,15 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/diary_card.dart';
+import '../../../shared/widgets/decorative_elements.dart';
 import '../../auth/presentation/auth_provider.dart';
 import '../../sync/presentation/sync_provider.dart';
 import 'diary_provider.dart';
 
 /// 首页 - 日记列表
 ///
-/// 设计理念：温暖的纸张质感，优雅的排版，沉浸式阅读体验
+/// 设计理念：纸墨流年 - 东方美学与现代极简的融合
+/// 时间轴式布局，沉浸式阅读体验
 class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
 
@@ -31,22 +33,18 @@ class _HomePageState extends ConsumerState<HomePage> with TickerProviderStateMix
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
-    // 延迟执行自动同步，等待 Provider 初始化完成
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _autoSyncIfNeeded();
     });
   }
 
-  /// 应用启动时自动同步
   Future<void> _autoSyncIfNeeded() async {
     if (_hasAutoSynced) return;
     _hasAutoSynced = true;
 
     final authState = ref.read(authProvider);
     if (authState.isBound) {
-      // 已绑定 token，自动同步
       await ref.read(syncServiceProvider).sync();
-      // 刷新日记列表
       ref.read(diaryListProvider.notifier).refresh();
     }
   }
@@ -76,16 +74,16 @@ class _HomePageState extends ConsumerState<HomePage> with TickerProviderStateMix
         backgroundColor: isDark ? AppTheme.darkBackground : AppTheme.lightBackground,
         body: Stack(
           children: [
-            // 背景装饰
-            _buildBackgroundDecoration(isDark),
-            
+            // 多层背景装饰
+            _buildBackgroundLayers(isDark),
+
             // 主内容
             SafeArea(
               child: Column(
                 children: [
                   // 顶部栏
                   _buildHeader(context, isDark),
-                  
+
                   // 日记列表
                   Expanded(
                     child: _buildDiaryList(diaryState, isDark),
@@ -100,24 +98,47 @@ class _HomePageState extends ConsumerState<HomePage> with TickerProviderStateMix
     );
   }
 
-  /// 背景装饰
-  Widget _buildBackgroundDecoration(bool isDark) {
-    return Positioned(
-      top: -100,
-      right: -100,
-      child: Container(
-        width: 300,
-        height: 300,
-        decoration: BoxDecoration(
-          gradient: RadialGradient(
-            colors: [
-              (isDark ? AppTheme.primaryLight : AppTheme.primaryColor)
-                  .withValues(alpha: isDark ? 0.08 : 0.06),
-              Colors.transparent,
-            ],
+  /// 多层背景装饰
+  Widget _buildBackgroundLayers(bool isDark) {
+    return Stack(
+      children: [
+        // 基础渐变背景
+        Positioned.fill(
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: isDark ? AppGradients.inkWashDark : AppGradients.inkWashLight,
+            ),
           ),
         ),
-      ),
+
+        // 右上角水墨晕染
+        InkBlotDecoration(
+          isDark: isDark,
+          opacity: isDark ? 0.06 : 0.04,
+          alignment: Alignment.topRight,
+        ),
+
+        // 左下角水墨晕染
+        InkBlotDecoration(
+          isDark: isDark,
+          opacity: isDark ? 0.04 : 0.03,
+          alignment: Alignment.bottomLeft,
+        ),
+
+        // 装饰性印章
+        Positioned(
+          bottom: 100,
+          right: -20,
+          child: Opacity(
+            opacity: 0.06,
+            child: SealStamp(
+              text: '留白',
+              size: 120,
+              isDark: isDark,
+            ),
+          ),
+        ).animate().fadeIn(delay: 800.ms, duration: 1000.ms),
+      ],
     );
   }
 
@@ -125,16 +146,17 @@ class _HomePageState extends ConsumerState<HomePage> with TickerProviderStateMix
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
       decoration: BoxDecoration(
-        color: _isScrolled 
+        color: _isScrolled
             ? (isDark ? AppTheme.darkBackground : AppTheme.lightBackground)
+                .withValues(alpha: 0.95)
             : Colors.transparent,
-        boxShadow: _isScrolled 
+        boxShadow: _isScrolled
             ? [
                 BoxShadow(
-                  color: isDark 
+                  color: isDark
                       ? Colors.black.withValues(alpha: 0.2)
-                      : AppTheme.primaryColor.withValues(alpha: 0.05),
-                  blurRadius: 10,
+                      : InkColors.lightInk.withValues(alpha: 0.3),
+                  blurRadius: 20,
                   offset: const Offset(0, 2),
                 ),
               ]
@@ -153,32 +175,54 @@ class _HomePageState extends ConsumerState<HomePage> with TickerProviderStateMix
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        '留白',
-                        style: TextStyle(
-                          fontSize: 32,
-                          fontWeight: FontWeight.w800,
-                          color: isDark ? AppTheme.darkText : AppTheme.lightText,
-                          letterSpacing: -1,
-                          height: 1.1,
-                        ),
+                      // 主标题 - 带装饰
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // 装饰性印章
+                          Container(
+                            width: 6,
+                            height: 32,
+                            decoration: BoxDecoration(
+                              gradient: AppGradients.sealGradient,
+                              borderRadius: BorderRadius.circular(3),
+                            ),
+                          ).animate().scaleY(
+                            begin: 0,
+                            end: 1,
+                            duration: 400.ms,
+                            curve: Curves.easeOutCubic,
+                          ),
+                          const SizedBox(width: 12),
+                          Text(
+                            '留白',
+                            style: TextStyle(
+                              fontSize: 34,
+                              fontWeight: FontWeight.w800,
+                              color: isDark ? AppTheme.darkText : AppTheme.lightText,
+                              letterSpacing: 2,
+                              height: 1.1,
+                            ),
+                          ).animate().fadeIn(delay: 100.ms).slideX(begin: -0.1, end: 0),
+                        ],
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 6),
+                      // 问候语
                       Text(
                         _getGreeting(),
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w400,
-                          color: isDark 
-                              ? AppTheme.darkTextSecondary 
+                          color: isDark
+                              ? AppTheme.darkTextSecondary
                               : AppTheme.lightTextSecondary,
-                          letterSpacing: 0.2,
+                          letterSpacing: 0.5,
                         ),
-                      ),
+                      ).animate().fadeIn(delay: 200.ms),
                     ],
                   ),
                 ),
-                
+
                 // 右侧操作按钮
                 Row(
                   mainAxisSize: MainAxisSize.min,
@@ -234,7 +278,7 @@ class _HomePageState extends ConsumerState<HomePage> with TickerProviderStateMix
                     color: isDark ? AppTheme.darkBorder : AppTheme.lightBorder,
                     width: 1,
                   ),
-                  boxShadow: AppTheme.cardShadow(isDark),
+                  boxShadow: AppShadows.inkShadow(isDark),
                 ),
                 child: TextField(
                   controller: _searchController,
@@ -250,8 +294,8 @@ class _HomePageState extends ConsumerState<HomePage> with TickerProviderStateMix
                     border: InputBorder.none,
                     prefixIcon: Icon(
                       Icons.search_rounded,
-                      color: isDark 
-                          ? AppTheme.darkTextTertiary 
+                      color: isDark
+                          ? AppTheme.darkTextTertiary
                           : AppTheme.lightTextTertiary,
                       size: 22,
                     ),
@@ -299,20 +343,15 @@ class _HomePageState extends ConsumerState<HomePage> with TickerProviderStateMix
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            SizedBox(
-              width: 32,
-              height: 32,
-              child: CircularProgressIndicator(
-                strokeWidth: 2.5,
-                color: isDark ? AppTheme.primaryLight : AppTheme.primaryColor,
-              ),
-            ),
-            const SizedBox(height: 16),
+            // 水墨涟漪加载动画
+            InkRippleDecoration(isDark: isDark),
+            const SizedBox(height: 24),
             Text(
               '加载中...',
               style: TextStyle(
                 color: isDark ? AppTheme.darkTextTertiary : AppTheme.lightTextTertiary,
                 fontSize: 14,
+                letterSpacing: 1,
               ),
             ),
           ],
@@ -321,92 +360,233 @@ class _HomePageState extends ConsumerState<HomePage> with TickerProviderStateMix
     }
 
     if (diaryState.error != null) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: AppTheme.accentColor.withValues(alpha: 0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  Icons.error_outline_rounded,
-                  size: 40,
-                  color: AppTheme.accentColor,
-                ),
-              ),
-              const SizedBox(height: 20),
-              Text(
-                '加载失败',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: isDark ? AppTheme.darkText : AppTheme.lightText,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                '请检查网络连接后重试',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: isDark 
-                      ? AppTheme.darkTextSecondary 
-                      : AppTheme.lightTextSecondary,
-                ),
-              ),
-              const SizedBox(height: 24),
-              TextButton.icon(
-                onPressed: () => ref.read(diaryListProvider.notifier).refresh(),
-                icon: const Icon(Icons.refresh_rounded, size: 20),
-                label: const Text('重新加载'),
-              ),
-            ],
-          ),
-        ),
-      );
+      return _buildErrorState(isDark);
     }
 
     if (diaryState.diaries.isEmpty) {
       return _buildEmptyState(isDark);
     }
 
+    // 按日期分组日记
+    final groupedDiaries = _groupDiariesByDate(diaryState.diaries);
+    final dates = groupedDiaries.keys.toList();
+
     return RefreshIndicator(
       color: isDark ? AppTheme.primaryLight : AppTheme.primaryColor,
       backgroundColor: isDark ? AppTheme.darkCard : AppTheme.lightCard,
       onRefresh: () => ref.read(diaryListProvider.notifier).refresh(),
-      child: ListView.builder(
+      child: CustomScrollView(
         controller: _scrollController,
-        padding: const EdgeInsets.fromLTRB(20, 0, 20, 120),
-        itemCount: diaryState.diaries.length,
-        itemBuilder: (context, index) {
-          final diary = diaryState.diaries[index];
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 16),
-            child: DiaryCard(
-              title: diary.title,
-              content: diary.content,
-              createdAt: diary.createdAt,
-              moodIndex: diary.moodIndex,
-              tags: diary.tags,
-              highlightText: diaryState.searchQuery.isNotEmpty 
-                  ? diaryState.searchQuery 
-                  : null,
-              onTap: () => context.push('/diary/${diary.id}'),
+        slivers: [
+          // 日记列表
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 120),
+            sliver: SliverList(
+              delegate: SliverChildBuilderDelegate(
+                (context, dateIndex) {
+                  final date = dates[dateIndex];
+                  final diaries = groupedDiaries[date]!;
+                  
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // 日期分隔标题
+                      if (dateIndex > 0 || diaryState.searchQuery.isEmpty) ...[
+                        _buildDateSectionHeader(date, isDark, dateIndex),
+                        const SizedBox(height: 16),
+                      ],
+                      
+                      // 该日期的日记卡片
+                      ...diaries.asMap().entries.map((entry) {
+                        final index = entry.key;
+                        final diary = entry.value;
+                        
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 16),
+                          child: _buildEnhancedDiaryCard(
+                            diary: diary,
+                            isDark: isDark,
+                            index: dateIndex * 10 + index,
+                            searchQuery: diaryState.searchQuery,
+                          ),
+                        );
+                      }),
+                    ],
+                  );
+                },
+                childCount: dates.length,
+              ),
             ),
-          ).animate().fadeIn(
-            delay: Duration(milliseconds: index * 30),
-            duration: 300.ms,
-          ).slideY(
-            begin: 0.05,
-            end: 0,
-            duration: 300.ms,
-            curve: Curves.easeOutCubic,
-          );
-        },
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 日期分组标题
+  Widget _buildDateSectionHeader(DateTime date, bool isDark, int index) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 4),
+      child: Row(
+        children: [
+          // 装饰性日期标签
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  (isDark ? AppTheme.primaryLight : AppTheme.primaryColor)
+                      .withValues(alpha: isDark ? 0.15 : 0.1),
+                  (isDark ? AppTheme.primaryLight : AppTheme.primaryColor)
+                      .withValues(alpha: isDark ? 0.08 : 0.05),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(AppTheme.radiusMD),
+              border: Border.all(
+                color: (isDark ? AppTheme.primaryLight : AppTheme.primaryColor)
+                    .withValues(alpha: 0.2),
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.event_note_rounded,
+                  size: 16,
+                  color: isDark ? AppTheme.primaryLight : AppTheme.primaryColor,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  _formatSectionDate(date),
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: isDark ? AppTheme.primaryLight : AppTheme.primaryColor,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          
+          // 装饰线
+          Expanded(
+            child: Container(
+              height: 1,
+              margin: const EdgeInsets.only(left: 16),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    (isDark ? AppTheme.darkBorder : AppTheme.lightBorder),
+                    Colors.transparent,
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    ).animate().fadeIn(delay: Duration(milliseconds: index * 50)).slideX(begin: -0.1, end: 0);
+  }
+
+  /// 增强版日记卡片
+  Widget _buildEnhancedDiaryCard({
+    required diary,
+    required bool isDark,
+    required int index,
+    String? searchQuery,
+  }) {
+    // 简化实现：直接返回 DiaryCard，移除 Stack 结构
+    return DiaryCard(
+      title: diary.title,
+      content: diary.content,
+      createdAt: diary.createdAt,
+      moodIndex: diary.moodIndex,
+      tags: diary.tags,
+      highlightText: searchQuery?.isNotEmpty == true ? searchQuery : null,
+      onTap: () => context.push('/diary/${diary.id}'),
+    )
+    .animate()
+    .fadeIn(
+      delay: Duration(milliseconds: index * 30),
+      duration: 400.ms,
+    )
+    .slideY(
+      begin: 0.08,
+      end: 0,
+      duration: 400.ms,
+      curve: Curves.easeOutCubic,
+    )
+    .shimmer(
+      duration: 1200.ms,
+      color: isDark
+          ? Colors.white.withValues(alpha: 0.03)
+          : Colors.white.withValues(alpha: 0.5),
+    );
+  }
+
+  Widget _buildErrorState(bool isDark) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    SealColors.vermilion.withValues(alpha: 0.1),
+                    SealColors.cinnabar.withValues(alpha: 0.05),
+                  ],
+                ),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.error_outline_rounded,
+                size: 48,
+                color: SealColors.vermilion,
+              ),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              '加载失败',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w700,
+                color: isDark ? AppTheme.darkText : AppTheme.lightText,
+                letterSpacing: 1,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '请检查网络连接后重试',
+              style: TextStyle(
+                fontSize: 14,
+                color: isDark
+                    ? AppTheme.darkTextSecondary
+                    : AppTheme.lightTextSecondary,
+              ),
+            ),
+            const SizedBox(height: 28),
+            TextButton.icon(
+              onPressed: () => ref.read(diaryListProvider.notifier).refresh(),
+              icon: const Icon(Icons.refresh_rounded, size: 20),
+              label: const Text('重新加载'),
+              style: TextButton.styleFrom(
+                foregroundColor: isDark ? AppTheme.primaryLight : AppTheme.primaryColor,
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppTheme.radiusLG),
+                  side: BorderSide(
+                    color: isDark ? AppTheme.primaryLight : AppTheme.primaryColor,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -418,90 +598,157 @@ class _HomePageState extends ConsumerState<HomePage> with TickerProviderStateMix
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // 装饰图标
-            Container(
-              width: 100,
-              height: 100,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    (isDark ? AppTheme.primaryLight : AppTheme.primaryColor)
-                        .withValues(alpha: 0.15),
-                    (isDark ? AppTheme.primaryLight : AppTheme.primaryColor)
-                        .withValues(alpha: 0.05),
-                  ],
-                ),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Icons.edit_note_rounded,
-                size: 48,
-                color: isDark ? AppTheme.primaryLight : AppTheme.primaryColor,
-              ),
-            )
-                .animate(onPlay: (controller) => controller.repeat())
-                .scale(
-                  begin: const Offset(1, 1),
-                  end: const Offset(1.03, 1.03),
-                  duration: 2500.ms,
-                  curve: Curves.easeInOut,
+            // 装饰性水墨画效果
+            Stack(
+              alignment: Alignment.center,
+              children: [
+                // 外圈涟漪
+                Container(
+                  width: 140,
+                  height: 140,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: (isDark ? AppTheme.primaryLight : AppTheme.primaryColor)
+                          .withValues(alpha: 0.1),
+                      width: 1,
+                    ),
+                  ),
                 )
-                .then()
-                .scale(
-                  begin: const Offset(1.03, 1.03),
-                  end: const Offset(1, 1),
-                  duration: 2500.ms,
-                  curve: Curves.easeInOut,
+                    .animate(onPlay: (controller) => controller.repeat())
+                    .scale(
+                      begin: const Offset(1, 1),
+                      end: const Offset(1.1, 1.1),
+                      duration: 3000.ms,
+                      curve: Curves.easeInOut,
+                    )
+                    .fadeIn(duration: 1500.ms)
+                    .then()
+                    .scale(
+                      begin: const Offset(1.1, 1.1),
+                      end: const Offset(1, 1),
+                      duration: 3000.ms,
+                      curve: Curves.easeInOut,
+                    ),
+
+                // 中圈
+                Container(
+                  width: 110,
+                  height: 110,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        (isDark ? AppTheme.primaryLight : AppTheme.primaryColor)
+                            .withValues(alpha: isDark ? 0.12 : 0.08),
+                        (isDark ? AppTheme.primaryLight : AppTheme.primaryColor)
+                            .withValues(alpha: isDark ? 0.06 : 0.03),
+                      ],
+                    ),
+                  ),
                 ),
 
-            const SizedBox(height: 32),
+                // 中心图标
+                Container(
+                  width: 80,
+                  height: 80,
+                  decoration: BoxDecoration(
+                    color: isDark
+                        ? AppTheme.darkCard
+                        : AppTheme.lightCard,
+                    shape: BoxShape.circle,
+                    boxShadow: AppShadows.inkShadow(isDark),
+                  ),
+                  child: Icon(
+                    Icons.edit_note_rounded,
+                    size: 36,
+                    color: isDark ? AppTheme.primaryLight : AppTheme.primaryColor,
+                  ),
+                ),
+              ],
+            ),
 
+            const SizedBox(height: 40),
+
+            // 标题
             Text(
               '开始记录你的故事',
               style: TextStyle(
-                fontSize: 22,
+                fontSize: 24,
                 fontWeight: FontWeight.w700,
                 color: isDark ? AppTheme.darkText : AppTheme.lightText,
-                letterSpacing: -0.3,
+                letterSpacing: 1,
               ),
-            ).animate().fadeIn(delay: 200.ms),
+            ).animate().fadeIn(delay: 200.ms).slideY(begin: 0.1, end: 0),
 
             const SizedBox(height: 12),
 
+            // 副标题
             Text(
               '每一篇日记，都是时光的礼物',
               style: TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.w400,
-                color: isDark 
-                    ? AppTheme.darkTextSecondary 
+                color: isDark
+                    ? AppTheme.darkTextSecondary
                     : AppTheme.lightTextSecondary,
-                height: 1.5,
+                height: 1.6,
+                letterSpacing: 0.5,
               ),
               textAlign: TextAlign.center,
             ).animate().fadeIn(delay: 400.ms),
 
-            const SizedBox(height: 32),
+            const SizedBox(height: 8),
+
+            // 装饰性分割线
+            DecorativeDivider(isDark: isDark, width: 60)
+                .animate().fadeIn(delay: 500.ms),
+
+            const SizedBox(height: 36),
 
             // 开始写作按钮
-            TextButton.icon(
-              onPressed: () => context.push('/diary/new'),
-              icon: const Icon(Icons.edit_rounded, size: 18),
-              label: const Text('写第一篇日记'),
-              style: TextButton.styleFrom(
-                foregroundColor: isDark ? AppTheme.primaryLight : AppTheme.primaryColor,
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-                shape: RoundedRectangleBorder(
+            Container(
+              decoration: BoxDecoration(
+                gradient: AppTheme.primaryGradient,
+                borderRadius: BorderRadius.circular(AppTheme.radiusLG),
+                boxShadow: AppShadows.glowShadow(
+                  isDark ? AppTheme.primaryLight : AppTheme.primaryColor,
+                  opacity: 0.3,
+                ),
+              ),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: () => context.push('/diary/new'),
                   borderRadius: BorderRadius.circular(AppTheme.radiusLG),
-                  side: BorderSide(
-                    color: isDark ? AppTheme.primaryLight : AppTheme.primaryColor,
-                    width: 1.5,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.edit_rounded,
+                          size: 20,
+                          color: Colors.white,
+                        ),
+                        const SizedBox(width: 10),
+                        const Text(
+                          '写第一篇日记',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 1,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
-            ).animate().fadeIn(delay: 600.ms),
+            ).animate().fadeIn(delay: 600.ms).slideY(begin: 0.2, end: 0),
           ],
         ),
       ),
@@ -509,51 +756,45 @@ class _HomePageState extends ConsumerState<HomePage> with TickerProviderStateMix
   }
 
   Widget _buildFAB(BuildContext context, bool isDark) {
-    return Container(
-      decoration: BoxDecoration(
-        gradient: AppTheme.primaryGradient,
-        borderRadius: BorderRadius.circular(AppTheme.radiusXL),
-        boxShadow: AppTheme.fabShadow,
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: () => context.push('/diary/new'),
-          borderRadius: BorderRadius.circular(AppTheme.radiusXL),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(
-                  Icons.edit_rounded,
-                  size: 20,
-                  color: Colors.white,
-                ),
-                const SizedBox(width: 8),
-                const Text(
-                  '写日记',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0.3,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    )
-        .animate()
-        .scale(
-          begin: const Offset(0, 0),
-          end: const Offset(1, 1),
-          duration: 500.ms,
-          curve: Curves.elasticOut,
-        )
-        .fadeIn(duration: 300.ms);
+    return PulsingFAB(
+      icon: Icons.edit_rounded,
+      label: '写日记',
+      onTap: () => context.push('/diary/new'),
+      isDark: isDark,
+    );
+  }
+
+  /// 按日期分组日记
+  Map<DateTime, List> _groupDiariesByDate(List diaries) {
+    final grouped = <DateTime, List>{};
+    
+    for (final diary in diaries) {
+      final date = DateTime(
+        diary.createdAt.year,
+        diary.createdAt.month,
+        diary.createdAt.day,
+      );
+      
+      grouped.putIfAbsent(date, () => []).add(diary);
+    }
+    
+    return grouped;
+  }
+
+  String _formatSectionDate(DateTime date) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final yesterday = today.subtract(const Duration(days: 1));
+    
+    if (date == today) {
+      return '今天';
+    } else if (date == yesterday) {
+      return '昨天';
+    } else if (now.year == date.year) {
+      return '${date.month}月${date.day}日';
+    } else {
+      return '${date.year}年${date.month}月${date.day}日';
+    }
   }
 
   String _getGreeting() {

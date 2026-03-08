@@ -27,7 +27,8 @@ class DiaryEntry {
   /// 标签列表 (JSON 字符串)
   List<String> tags = [];
 
-  /// 图片路径列表 (JSON 字符串)
+  /// 图片 UUID 列表
+  /// 用于关联本地存储的图片和云端同步
   List<String> images = [];
 
   /// 创建时间
