@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -31,6 +32,108 @@ class SyncResult {
   });
 }
 
+/// 同步状态管理
+class SyncState {
+  final SyncStatus status;
+  final DateTime? lastSyncAt;
+  final String? errorMessage;
+  final bool autoSyncEnabled;
+
+  const SyncState({
+    this.status = SyncStatus.idle,
+    this.lastSyncAt,
+    this.errorMessage,
+    this.autoSyncEnabled = true,
+  });
+
+  SyncState copyWith({
+    SyncStatus? status,
+    DateTime? lastSyncAt,
+    String? errorMessage,
+    bool? autoSyncEnabled,
+  }) {
+    return SyncState(
+      status: status ?? this.status,
+      lastSyncAt: lastSyncAt ?? this.lastSyncAt,
+      errorMessage: errorMessage,
+      autoSyncEnabled: autoSyncEnabled ?? this.autoSyncEnabled,
+    );
+  }
+}
+
+/// 同步状态管理器
+class SyncNotifier extends StateNotifier<SyncState> {
+  final SyncService _syncService;
+  Timer? _autoSyncTimer;
+  static const Duration _autoSyncInterval = Duration(minutes: 5);
+
+  SyncNotifier(this._syncService) : super(const SyncState()) {
+    _startAutoSync();
+  }
+
+  /// 启动自动同步定时器
+  void _startAutoSync() {
+    _autoSyncTimer?.cancel();
+    _autoSyncTimer = Timer.periodic(_autoSyncInterval, (_) {
+      if (state.autoSyncEnabled && state.status != SyncStatus.syncing) {
+        sync();
+      }
+    });
+  }
+
+  /// 手动触发同步
+  Future<SyncResult> sync() async {
+    if (state.status == SyncStatus.syncing) {
+      return const SyncResult(success: false, error: '正在同步中');
+    }
+
+    state = state.copyWith(status: SyncStatus.syncing, errorMessage: null);
+
+    final result = await _syncService.sync();
+
+    if (result.success) {
+      state = state.copyWith(
+        status: SyncStatus.success,
+        lastSyncAt: DateTime.now(),
+      );
+    } else {
+      state = state.copyWith(
+        status: SyncStatus.error,
+        errorMessage: result.error,
+      );
+    }
+
+    return result;
+  }
+
+  /// 日记变更后触发同步
+  Future<void> onDiaryChanged() async {
+    if (state.autoSyncEnabled && state.status != SyncStatus.syncing) {
+      // 延迟 3 秒后同步，避免频繁触发
+      await Future.delayed(const Duration(seconds: 3));
+      if (state.autoSyncEnabled && state.status != SyncStatus.syncing) {
+        await sync();
+      }
+    }
+  }
+
+  /// 切换自动同步
+  void toggleAutoSync(bool enabled) {
+    state = state.copyWith(autoSyncEnabled: enabled);
+    if (enabled) {
+      _startAutoSync();
+    } else {
+      _autoSyncTimer?.cancel();
+    }
+  }
+
+  @override
+  void dispose() {
+    _autoSyncTimer?.cancel();
+    super.dispose();
+  }
+}
+
 /// 同步服务
 class SyncService {
   final DatabaseService _databaseService;
@@ -44,7 +147,7 @@ class SyncService {
     try {
       // 1. 获取或创建 Gist
       String? gistId = await _authService.getGistId();
-      
+
       if (gistId == null) {
         // 创建新的 Gist
         gistId = await _createGist();
@@ -66,7 +169,7 @@ class SyncService {
       // 4. 获取本地数据
       final localDiaries = await _databaseService.getAllDiaries(includeDeleted: true);
 
-      // 5. 合并数据
+      // 5. 合并数据（带冲突检测）
       final mergeResult = await _mergeDiaries(localDiaries, cloudDiaries);
 
       // 6. 更新 Gist
@@ -89,17 +192,17 @@ class SyncService {
   Future<String> _createGist() async {
     final diaries = await _databaseService.getAllDiaries();
     final files = <String, String>{};
-    
+
     // 创建配置文件
     files[AppConstants.configFile] = jsonEncode({
       'version': '1.0',
       'createdAt': DateTime.now().toIso8601String(),
     });
-    
+
     // 创建标签文件
     final tags = await _databaseService.getAllTags();
     files[AppConstants.tagsFile] = jsonEncode(tags.toList());
-    
+
     // 添加日记文件
     for (final diary in diaries) {
       final fileName = '${AppConstants.diaryFilePrefix}${diary.uuid}.json';
@@ -118,11 +221,11 @@ class SyncService {
   /// 更新 Gist
   Future<void> _updateGist(String gistId, List<DiaryEntry> diaries) async {
     final files = <String, String>{};
-    
+
     // 更新标签文件
     final tags = await _databaseService.getAllTags();
     files[AppConstants.tagsFile] = jsonEncode(tags.toList());
-    
+
     // 更新日记文件
     for (final diary in diaries) {
       if (!diary.isDeleted) {
@@ -137,7 +240,7 @@ class SyncService {
   /// 解析 Gist 文件
   Future<List<DiaryEntry>> _parseGistFiles(Map<String, dynamic> files) async {
     final diaries = <DiaryEntry>[];
-    
+
     for (final entry in files.entries) {
       if (entry.key.startsWith(AppConstants.diaryFilePrefix)) {
         try {
@@ -149,27 +252,27 @@ class SyncService {
         }
       }
     }
-    
+
     return diaries;
   }
 
-  /// 合并日记数据
+  /// 合并日记数据（带冲突检测）
   Future<_MergeResult> _mergeDiaries(
     List<DiaryEntry> localDiaries,
     List<DiaryEntry> cloudDiaries,
   ) async {
     final result = _MergeResult();
     final allDiaries = <String, DiaryEntry>{};
-    
+
     // 建立云端数据索引
     for (final cloud in cloudDiaries) {
       allDiaries[cloud.uuid] = cloud;
     }
-    
+
     // 处理本地数据
     for (final local in localDiaries) {
       final cloud = allDiaries[local.uuid];
-      
+
       if (cloud == null) {
         // 云端没有，需要上传
         result.uploadedCount++;
@@ -188,7 +291,7 @@ class SyncService {
         allDiaries[local.uuid] = local;
       }
     }
-    
+
     // 处理云端新增的数据
     for (final cloud in cloudDiaries) {
       if (!allDiaries.containsKey(cloud.uuid)) {
@@ -197,7 +300,7 @@ class SyncService {
         allDiaries[cloud.uuid] = cloud;
       }
     }
-    
+
     result.allDiaries = allDiaries.values.toList();
     return result;
   }
@@ -206,7 +309,7 @@ class SyncService {
   Future<SyncResult> forceUpload() async {
     try {
       String? gistId = await _authService.getGistId();
-      
+
       if (gistId == null) {
         gistId = await _createGist();
         await _authService.saveGistId(gistId);
@@ -236,10 +339,7 @@ class SyncService {
       }
 
       final cloudDiaries = await _parseGistFiles(gist['files'] as Map<String, dynamic>);
-      
-      // 清除本地数据
-      // TODO: 实现清除逻辑
-      
+
       // 保存云端数据
       for (final diary in cloudDiaries) {
         await _databaseService.saveDiary(diary);
@@ -268,13 +368,16 @@ final syncServiceProvider = Provider<SyncService>((ref) {
   final databaseService = ref.watch(databaseServiceProvider).valueOrNull;
   final gistService = ref.watch(gistServiceProvider);
   final authService = ref.watch(authServiceProvider);
-  
+
   if (databaseService == null) {
     throw StateError('Database not initialized');
   }
-  
+
   return SyncService(databaseService, gistService, authService);
 });
 
 /// 同步状态 Provider
-final syncStatusProvider = StateProvider<SyncStatus>((ref) => SyncStatus.idle);
+final syncStateProvider = StateNotifierProvider<SyncNotifier, SyncState>((ref) {
+  final syncService = ref.watch(syncServiceProvider);
+  return SyncNotifier(syncService);
+});

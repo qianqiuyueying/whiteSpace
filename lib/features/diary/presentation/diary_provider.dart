@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/services/database_service.dart';
 import '../../../core/services/gist_service.dart';
 import '../../../core/services/auth_service.dart';
+import '../../sync/presentation/sync_provider.dart';
 import '../data/models/diary_entry.dart';
 
 /// 日记列表状态
@@ -126,8 +127,9 @@ class DiaryService {
   final DatabaseService _databaseService;
   final GistService _gistService;
   final AuthService _authService;
+  final Ref _ref;
 
-  DiaryService(this._databaseService, this._gistService, this._authService);
+  DiaryService(this._databaseService, this._gistService, this._authService, this._ref);
 
   /// 创建日记
   Future<DiaryEntry> createDiary({
@@ -147,24 +149,33 @@ class DiaryService {
       ..tags = tags
       ..images = images
       ..location = location;
-    
+
     await _databaseService.saveDiary(entry);
+    _triggerAutoSync();
     return entry;
   }
 
   /// 更新日记
   Future<void> updateDiary(DiaryEntry entry) async {
     await _databaseService.saveDiary(entry);
+    _triggerAutoSync();
   }
 
   /// 删除日记
   Future<void> deleteDiary(int id) async {
     await _databaseService.deleteDiary(id);
+    _triggerAutoSync();
   }
 
   /// 永久删除日记
   Future<void> permanentlyDeleteDiary(int id) async {
     await _databaseService.permanentlyDeleteDiary(id);
+    _triggerAutoSync();
+  }
+
+  /// 触发自动同步
+  void _triggerAutoSync() {
+    _ref.read(syncStateProvider.notifier).onDiaryChanged();
   }
 
   /// 导出日记为 JSON
@@ -215,11 +226,11 @@ final diaryServiceProvider = Provider<DiaryService>((ref) {
   final databaseService = ref.watch(databaseServiceProvider).valueOrNull;
   final gistService = ref.watch(gistServiceProvider);
   final authService = ref.watch(authServiceProvider);
-  
+
   if (databaseService == null) {
     throw StateError('Database not initialized');
   }
-  
-  return DiaryService(databaseService, gistService, authService);
+
+  return DiaryService(databaseService, gistService, authService, ref);
 });
 
