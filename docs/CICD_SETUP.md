@@ -30,12 +30,6 @@ git push origin v1.0.1
 | 文件 | 用途 | 位置 |
 |------|------|------|
 | `white_space_qwen-android.apk` | 直接安装 | Release 附件 / Artifacts |
-| `white_space_qwen.aab` | Google Play | Release 附件 / Artifacts |
-
-### Windows
-| 文件 | 用途 | 位置 |
-|------|------|------|
-| `white_space_qwen-windows.zip` | Windows 安装包 | Release 附件 / Artifacts |
 
 ---
 
@@ -149,6 +143,7 @@ on:
 - Linux 构建
 - Web 构建
 - 自动测试
+- AAB 构建（用于 Google Play）
 
 ---
 

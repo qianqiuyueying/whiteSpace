@@ -9,8 +9,7 @@ A beautiful diary app with GitHub Gist sync
 
 访问 [Releases 页面](https://github.com/qianqiuyueying/whiteSpace/releases) 下载最新版本：
 
-- **Android**: `white_space_qwen-android.apk` (直接安装) 或 `white_space_qwen.aab` (Google Play)
-- **Windows**: `white_space_qwen-windows.zip`
+- **Android**: `white_space_qwen-android.apk`
 
 ## 🚀 自动构建
 
