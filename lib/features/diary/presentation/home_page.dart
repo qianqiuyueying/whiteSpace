@@ -94,6 +94,13 @@ class _HomePageState extends ConsumerState<HomePage> {
               Row(
                 children: [
                   IconButton(
+                    onPressed: () => context.push('/calendar'),
+                    icon: Icon(
+                      Icons.calendar_today_rounded,
+                      color: isDark ? AppTheme.darkText : AppTheme.lightText,
+                    ),
+                  ),
+                  IconButton(
                     onPressed: () => context.push('/stats'),
                     icon: Icon(
                       Icons.bar_chart_rounded,

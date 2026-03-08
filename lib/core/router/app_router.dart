@@ -7,6 +7,7 @@ import '../../features/diary/presentation/home_page.dart';
 import '../../features/diary/presentation/diary_edit_page.dart';
 import '../../features/diary/presentation/diary_detail_page.dart';
 import '../../features/diary/presentation/stats_page.dart';
+import '../../features/diary/presentation/calendar_page.dart';
 import '../../features/settings/presentation/settings_page.dart';
 
 /// 路由配置
@@ -42,6 +43,10 @@ final GoRouter _router = GoRouter(
     GoRoute(
       path: '/stats',
       builder: (context, state) => const StatsPage(),
+    ),
+    GoRoute(
+      path: '/calendar',
+      builder: (context, state) => const CalendarPage(),
     ),
     GoRoute(
       path: '/settings',
