@@ -10,6 +10,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'dart:io';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/theme_provider.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/services/database_service.dart';
 import '../../../core/services/import_service.dart';
@@ -20,7 +21,7 @@ import '../../auth/data/models/user_profile.dart';
 import '../../diary/presentation/diary_provider.dart';
 
 /// 设置页面
-/// 
+///
 /// 设计理念：清晰的分组，优雅的卡片，舒适的阅读体验
 class SettingsPage extends ConsumerStatefulWidget {
   const SettingsPage({super.key});
@@ -30,17 +31,11 @@ class SettingsPage extends ConsumerStatefulWidget {
 }
 
 class _SettingsPageState extends ConsumerState<SettingsPage> {
-  bool _isDarkMode = false;
   bool _isSyncing = false;
 
   @override
   void initState() {
     super.initState();
-    _loadSettings();
-  }
-
-  void _loadSettings() {
-    // TODO: 从本地存储加载主题设置
   }
 
   Future<void> _logout() async {
@@ -544,6 +539,8 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   }
 
   Widget _buildThemeTile(bool isDark) {
+    final themeState = ref.watch(themeProvider);
+    
     return ListTile(
       leading: Container(
         padding: const EdgeInsets.all(10),
@@ -553,13 +550,17 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           borderRadius: BorderRadius.circular(12),
         ),
         child: Icon(
-          Icons.dark_mode_outlined,
+          themeState.mode == AppThemeMode.dark 
+              ? Icons.dark_mode_rounded 
+              : themeState.mode == AppThemeMode.light
+                  ? Icons.light_mode_rounded
+                  : Icons.brightness_auto_rounded,
           color: isDark ? AppTheme.primaryLight : AppTheme.primaryColor,
           size: 20,
         ),
       ),
       title: Text(
-        '深色模式',
+        '外观模式',
         style: TextStyle(
           fontSize: 15,
           fontWeight: FontWeight.w500,
@@ -567,7 +568,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         ),
       ),
       subtitle: Text(
-        '跟随系统',
+        themeState.mode.label,
         style: TextStyle(
           fontSize: 13,
           color: isDark
@@ -575,9 +576,45 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               : AppTheme.lightTextSecondary,
         ),
       ),
-      trailing: Switch(
-        value: _isDarkMode,
-        onChanged: (value) => setState(() => _isDarkMode = value),
+      trailing: Icon(
+        Icons.chevron_right_rounded,
+        color: isDark
+            ? AppTheme.darkTextTertiary
+            : AppTheme.lightTextTertiary,
+      ),
+      onTap: () => _showThemeDialog(isDark),
+    );
+  }
+
+  void _showThemeDialog(bool isDark) {
+    final themeState = ref.read(themeProvider);
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('选择外观模式'),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppTheme.radiusLG),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: AppThemeMode.values.map((mode) {
+            final isSelected = themeState.mode == mode;
+            return RadioListTile<AppThemeMode>(
+              title: Text(mode.label),
+              value: mode,
+              groupValue: themeState.mode,
+              selected: isSelected,
+              activeColor: isDark ? AppTheme.primaryLight : AppTheme.primaryColor,
+              onChanged: (value) {
+                if (value != null) {
+                  ref.read(themeProvider.notifier).setThemeMode(value);
+                  Navigator.pop(context);
+                }
+              },
+            );
+          }).toList(),
+        ),
       ),
     );
   }
