@@ -232,11 +232,12 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
   }
 
   Widget _buildEmptyState(bool isDark) {
-    return Center(
+    return SingleChildScrollView(
       child: Padding(
         padding: const EdgeInsets.all(32),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
           children: [
             Container(
               width: 80,
