@@ -154,6 +154,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
       if (mounted) {
         if (result.success) {
+          // 刷新日记列表
+          ref.read(diaryListProvider.notifier).refresh();
+          
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('同步成功，上传 ${result.uploadedCount} 篇，下载 ${result.downloadedCount} 篇'),
