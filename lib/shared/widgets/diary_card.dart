@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../../core/theme/app_theme.dart';
 
 /// 精美的日记卡片组件
+/// 
+/// 设计理念：优雅的卡片设计，柔和的色彩过渡，清晰的信息层次
 class DiaryCard extends StatelessWidget {
   final String? title;
   final String content;
@@ -33,122 +35,159 @@ class DiaryCard extends StatelessWidget {
       onTap: onTap,
       onLongPress: onLongPress,
       child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
-          gradient: _getGradientForMood(moodIndex),
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 20,
-              offset: const Offset(0, 10),
-            ),
-          ],
+          color: isDark ? AppTheme.darkCard : AppTheme.lightCard,
+          borderRadius: BorderRadius.circular(AppTheme.radiusLG),
+          border: Border.all(
+            color: isDark ? AppTheme.darkBorder : AppTheme.lightBorder,
+            width: 1,
+          ),
+          boxShadow: AppTheme.cardShadow(isDark),
         ),
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(20),
-          child: Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: isDark
-                  ? Colors.black.withOpacity(0.3)
-                  : Colors.white.withOpacity(0.3),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // 顶部：日期和心情
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          borderRadius: BorderRadius.circular(AppTheme.radiusLG),
+          child: Stack(
+            children: [
+              // 左侧心情指示条
+              Positioned(
+                left: 0,
+                top: 0,
+                bottom: 0,
+                child: Container(
+                  width: 4,
+                  decoration: BoxDecoration(
+                    gradient: _getGradientForMood(moodIndex),
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(AppTheme.radiusLG),
+                      bottomLeft: Radius.circular(AppTheme.radiusLG),
+                    ),
+                  ),
+                ),
+              ),
+              
+              // 内容
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // 顶部：日期和心情
                     Row(
                       children: [
+                        // 日期
                         Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 12,
                             vertical: 6,
                           ),
                           decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.2),
-                            borderRadius: BorderRadius.circular(20),
+                            color: (isDark ? AppTheme.primaryLight : AppTheme.primaryColor)
+                                .withValues(alpha: isDark ? 0.15 : 0.1),
+                            borderRadius: BorderRadius.circular(AppTheme.radiusXL),
                           ),
                           child: Text(
                             _formatDate(createdAt),
                             style: TextStyle(
-                              color: Colors.white.withOpacity(0.9),
+                              color: isDark ? AppTheme.primaryLight : AppTheme.primaryColor,
                               fontSize: 12,
-                              fontWeight: FontWeight.w500,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 0.2,
                             ),
                           ),
                         ),
-                        if (tags.isNotEmpty) ...[
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.15),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Text(
-                              tags.first,
-                              style: TextStyle(
-                                color: Colors.white.withOpacity(0.8),
-                                fontSize: 11,
-                              ),
-                            ),
+                        
+                        const SizedBox(width: 8),
+                        
+                        // 时间
+                        Text(
+                          _formatTime(createdAt),
+                          style: TextStyle(
+                            color: isDark 
+                                ? AppTheme.darkTextTertiary 
+                                : AppTheme.lightTextTertiary,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w400,
                           ),
-                        ],
+                        ),
+                        
+                        const Spacer(),
+                        
+                        // 心情
+                        Text(
+                          mood.emoji,
+                          style: const TextStyle(fontSize: 22),
+                        ),
                       ],
                     ),
-                    Text(
-                      mood.emoji,
-                      style: const TextStyle(fontSize: 24),
+
+                    // 标题
+                    if (title != null && title!.isNotEmpty) ...[
+                      const SizedBox(height: 14),
+                      _buildHighlightedText(
+                        title!,
+                        TextStyle(
+                          color: isDark ? AppTheme.darkText : AppTheme.lightText,
+                          fontSize: 17,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: -0.2,
+                          height: 1.3,
+                        ),
+                        2,
+                      ),
+                    ],
+
+                    // 内容预览
+                    const SizedBox(height: 10),
+                    _buildHighlightedText(
+                      content,
+                      TextStyle(
+                        color: isDark 
+                            ? AppTheme.darkTextSecondary 
+                            : AppTheme.lightTextSecondary,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w400,
+                        height: 1.6,
+                        letterSpacing: 0.1,
+                      ),
+                      3,
                     ),
+
+                    // 标签
+                    if (tags.isNotEmpty) ...[
+                      const SizedBox(height: 14),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 6,
+                        children: tags.take(3).map((tag) {
+                          return Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 5,
+                            ),
+                            decoration: BoxDecoration(
+                              color: isDark 
+                                  ? AppTheme.darkBackgroundSecondary
+                                  : AppTheme.lightBackgroundSecondary,
+                              borderRadius: BorderRadius.circular(AppTheme.radiusXL),
+                            ),
+                            child: Text(
+                              '#$tag',
+                              style: TextStyle(
+                                color: isDark 
+                                    ? AppTheme.darkTextSecondary 
+                                    : AppTheme.lightTextSecondary,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ],
                   ],
                 ),
-
-                const SizedBox(height: 16),
-
-                // 标题
-                if (title != null && title!.isNotEmpty) ...[
-                  _buildHighlightedText(
-                    title!,
-                    const TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                    1,
-                  ),
-                  const SizedBox(height: 8),
-                ],
-
-                // 内容预览
-                _buildHighlightedText(
-                  content,
-                  TextStyle(
-                    color: Colors.white.withOpacity(0.9),
-                    fontSize: 14,
-                    height: 1.5,
-                  ),
-                  3,
-                ),
-
-                const SizedBox(height: 12),
-
-                // 底部时间
-                Text(
-                  _formatTime(createdAt),
-                  style: TextStyle(
-                    color: Colors.white.withOpacity(0.6),
-                    fontSize: 11,
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
@@ -173,7 +212,6 @@ class DiaryCard extends StatelessWidget {
 
     var index = lowerText.indexOf(lowerHighlight);
     while (index != -1) {
-      // 添加高亮前的普通文本
       if (index > start) {
         spans.add(TextSpan(
           text: text.substring(start, index),
@@ -181,13 +219,12 @@ class DiaryCard extends StatelessWidget {
         ));
       }
 
-      // 添加高亮文本
       spans.add(TextSpan(
         text: text.substring(index, index + highlightText!.length),
         style: style.copyWith(
-          backgroundColor: Colors.yellow.withOpacity(0.5),
-          color: Colors.black,
-          fontWeight: FontWeight.bold,
+          backgroundColor: const Color(0xFFFFE066).withValues(alpha: 0.5),
+          color: const Color(0xFF1A1A1A),
+          fontWeight: FontWeight.w600,
         ),
       ));
 
@@ -195,7 +232,6 @@ class DiaryCard extends StatelessWidget {
       index = lowerText.indexOf(lowerHighlight, start);
     }
 
-    // 添加剩余文本
     if (start < text.length) {
       spans.add(TextSpan(
         text: text.substring(start),
@@ -213,14 +249,12 @@ class DiaryCard extends StatelessWidget {
   LinearGradient _getGradientForMood(int index) {
     final gradients = [
       AppTheme.warmGradient,   // happy
-      AppTheme.coolGradient,   // calm
-      AppTheme.sunsetGradient, // sad
-      const LinearGradient(
-        colors: [Color(0xFF434343), Color(0xFF000000)],
-      ),                        // angry
-      AppTheme.natureGradient,  // anxious
-      AppTheme.warmGradient,    // excited
-      AppTheme.primaryGradient, // tired
+      AppTheme.calmGradient,   // calm
+      const LinearGradient(colors: [Color(0xFF6B8CAE), Color(0xFF8BA8C7)]), // sad
+      const LinearGradient(colors: [Color(0xFFC75B5B), Color(0xFFE07A5F)]), // angry
+      const LinearGradient(colors: [Color(0xFF8B7355), Color(0xFFA69076)]), // anxious
+      AppTheme.warmGradient,   // excited
+      const LinearGradient(colors: [Color(0xFF5C7BA8), Color(0xFF7A96BF)]), // tired
       AppTheme.primaryGradient, // neutral
     ];
     return gradients[index.clamp(0, gradients.length - 1)];
@@ -236,8 +270,10 @@ class DiaryCard extends StatelessWidget {
       return '今天';
     } else if (dateDay == yesterday) {
       return '昨天';
-    } else {
+    } else if (now.year == date.year) {
       return '${date.month}月${date.day}日';
+    } else {
+      return '${date.year}年${date.month}月${date.day}日';
     }
   }
 
@@ -246,7 +282,7 @@ class DiaryCard extends StatelessWidget {
   }
 }
 
-/// 心情枚举 (需要与 constants 中保持一致)
+/// 心情枚举
 enum Mood {
   happy('开心', '😊'),
   calm('平静', '😌'),

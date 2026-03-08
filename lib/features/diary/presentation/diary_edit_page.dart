@@ -1,19 +1,22 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_theme.dart';
-import '../../../core/constants/app_constants.dart';
 import '../../../core/services/database_service.dart';
 import '../../../core/services/draft_service.dart';
 import '../../../core/services/image_service.dart';
 import '../data/models/diary_entry.dart';
 import 'diary_provider.dart';
+import '../../../shared/widgets/diary_card.dart';
 
 /// 日记编辑页面
+/// 
+/// 设计理念：沉浸式写作体验，简洁优雅的界面
 class DiaryEditPage extends ConsumerStatefulWidget {
   final int? diaryId;
 
@@ -28,17 +31,14 @@ class _DiaryEditPageState extends ConsumerState<DiaryEditPage> {
   final _contentController = TextEditingController();
   final _tagController = TextEditingController();
 
-  int _selectedMood = 7; // 默认 neutral
+  int _selectedMood = 7;
   int? _selectedWeather;
   List<String> _tags = [];
   bool _isSaving = false;
   DiaryEntry? _existingDiary;
 
-  // 自动保存相关
   Timer? _autoSaveTimer;
   bool _showSavedIndicator = false;
-
-  // 临时图片列表（用于新日记）
   final List<String> _tempImages = [];
 
   @override
@@ -49,7 +49,6 @@ class _DiaryEditPageState extends ConsumerState<DiaryEditPage> {
   }
 
   void _setupAutoSave() {
-    // 每 5 秒自动保存草稿（静默保存）
     _autoSaveTimer = Timer.periodic(const Duration(seconds: 5), (_) {
       _saveDraft();
     });
@@ -74,22 +73,15 @@ class _DiaryEditPageState extends ConsumerState<DiaryEditPage> {
     await draftService.saveDraft(draft);
 
     if (mounted) {
-      setState(() {
-        _showSavedIndicator = true;
-      });
-
-      // 2 秒后隐藏指示器
+      setState(() => _showSavedIndicator = true);
       Future.delayed(const Duration(seconds: 2), () {
-        if (mounted) {
-          setState(() => _showSavedIndicator = false);
-        }
+        if (mounted) setState(() => _showSavedIndicator = false);
       });
     }
   }
 
   Future<void> _loadDiary() async {
     if (widget.diaryId == null) {
-      // 检查是否有未保存的草稿
       await _loadDraft();
       return;
     }
@@ -118,8 +110,9 @@ class _DiaryEditPageState extends ConsumerState<DiaryEditPage> {
         context: context,
         builder: (context) => AlertDialog(
           title: const Text('发现未保存的草稿'),
-          content: Text(
-            '找到上次编辑的草稿（${_formatDateTime(draft.lastSavedAt)}），是否恢复？',
+          content: Text('找到上次编辑的草稿，是否恢复？'),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppTheme.radiusLG),
           ),
           actions: [
             TextButton(
@@ -144,24 +137,8 @@ class _DiaryEditPageState extends ConsumerState<DiaryEditPage> {
           _tempImages.addAll(draft.images);
         });
       } else {
-        // 清除草稿
         await draftService.clearDraft();
       }
-    }
-  }
-
-  String _formatDateTime(DateTime date) {
-    final now = DateTime.now();
-    final diff = now.difference(date);
-
-    if (diff.inMinutes < 1) {
-      return '刚刚';
-    } else if (diff.inMinutes < 60) {
-      return '${diff.inMinutes}分钟前';
-    } else if (diff.inHours < 24) {
-      return '${diff.inHours}小时前';
-    } else {
-      return '${date.month}月${date.day}日';
     }
   }
 
@@ -177,7 +154,13 @@ class _DiaryEditPageState extends ConsumerState<DiaryEditPage> {
   Future<void> _save() async {
     if (_contentController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请输入日记内容')),
+        SnackBar(
+          content: const Text('请输入日记内容'),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppTheme.radiusMD),
+          ),
+        ),
       );
       return;
     }
@@ -188,7 +171,6 @@ class _DiaryEditPageState extends ConsumerState<DiaryEditPage> {
       final diaryService = ref.read(diaryServiceProvider);
 
       if (_existingDiary != null) {
-        // 更新现有日记
         _existingDiary!
           ..title = _titleController.text.trim().isEmpty
               ? null
@@ -201,7 +183,6 @@ class _DiaryEditPageState extends ConsumerState<DiaryEditPage> {
 
         await diaryService.updateDiary(_existingDiary!);
       } else {
-        // 创建新日记
         await diaryService.createDiary(
           title: _titleController.text.trim().isEmpty
               ? null
@@ -214,16 +195,12 @@ class _DiaryEditPageState extends ConsumerState<DiaryEditPage> {
         );
       }
 
-      // 保存成功后清除草稿
       final draftService = ref.read(draftServiceProvider);
       await draftService.clearDraft();
 
-      // 刷新列表
       ref.read(diaryListProvider.notifier).refresh();
 
-      if (mounted) {
-        context.pop();
-      }
+      if (mounted) context.pop();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -231,9 +208,7 @@ class _DiaryEditPageState extends ConsumerState<DiaryEditPage> {
         );
       }
     } finally {
-      if (mounted) {
-        setState(() => _isSaving = false);
-      }
+      if (mounted) setState(() => _isSaving = false);
     }
   }
 
@@ -273,46 +248,39 @@ class _DiaryEditPageState extends ConsumerState<DiaryEditPage> {
   }
 
   void _removeTag(String tag) {
-    setState(() {
-      _tags.remove(tag);
-    });
+    setState(() => _tags.remove(tag));
   }
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return Scaffold(
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: isDark
-                ? [AppTheme.darkBackground, AppTheme.darkSurface]
-                : [AppTheme.lightBackground, AppTheme.lightSurface],
-          ),
-        ),
-        child: SafeArea(
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: isDark ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark,
+      child: Scaffold(
+        backgroundColor: isDark ? AppTheme.darkBackground : AppTheme.lightBackground,
+        body: SafeArea(
           child: Column(
             children: [
               _buildAppBar(context, isDark),
               Expanded(
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(20),
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      const SizedBox(height: 8),
                       _buildMoodSelector(isDark),
-                      const SizedBox(height: 24),
+                      const SizedBox(height: 20),
                       _buildWeatherSelector(isDark),
-                      const SizedBox(height: 24),
+                      const SizedBox(height: 28),
                       _buildTitleField(isDark),
                       const SizedBox(height: 16),
                       _buildContentField(isDark),
                       _buildImageSection(isDark),
                       const SizedBox(height: 24),
                       _buildTagSection(isDark),
+                      const SizedBox(height: 40),
                     ],
                   ),
                 ),
@@ -325,7 +293,7 @@ class _DiaryEditPageState extends ConsumerState<DiaryEditPage> {
   }
 
   Widget _buildAppBar(BuildContext context, bool isDark) {
-    return Padding(
+    return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
       child: Row(
         children: [
@@ -336,54 +304,76 @@ class _DiaryEditPageState extends ConsumerState<DiaryEditPage> {
               color: isDark ? AppTheme.darkText : AppTheme.lightText,
             ),
           ),
-          // 保存指示器
           if (_showSavedIndicator)
-            Padding(
-              padding: const EdgeInsets.only(left: 8),
+            Container(
+              margin: const EdgeInsets.only(left: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: const Color(0xFF4CAF50).withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(AppTheme.radiusXL),
+              ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(
                     Icons.cloud_done_rounded,
-                    size: 16,
-                    color: Colors.green,
+                    size: 14,
+                    color: const Color(0xFF4CAF50),
                   ),
-                  const SizedBox(width: 4),
+                  const SizedBox(width: 6),
                   Text(
                     '已保存',
                     style: TextStyle(
                       fontSize: 12,
-                      color: Colors.green,
+                      fontWeight: FontWeight.w500,
+                      color: const Color(0xFF4CAF50),
                     ),
                   ),
                 ],
               ),
-            ).animate().fadeIn(),
+            ).animate().fadeIn(duration: 200.ms),
           const Spacer(),
-          // 图片按钮
           IconButton(
             onPressed: _pickImage,
             icon: Icon(
-              Icons.image_rounded,
-              color: isDark ? AppTheme.darkText : AppTheme.lightText,
+              Icons.image_outlined,
+              color: isDark ? AppTheme.darkTextSecondary : AppTheme.lightTextSecondary,
             ),
           ),
-          TextButton.icon(
-            onPressed: _isSaving ? null : _save,
-            icon: _isSaving
-                ? const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.check_rounded),
-            label: Text(_isSaving ? '保存中...' : '保存'),
-            style: TextButton.styleFrom(
-              foregroundColor: AppTheme.primaryColor,
-              textStyle: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
+          Container(
+            margin: const EdgeInsets.only(right: 8),
+            child: TextButton(
+              onPressed: _isSaving ? null : _save,
+              style: TextButton.styleFrom(
+                foregroundColor: isDark ? AppTheme.primaryLight : AppTheme.primaryColor,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppTheme.radiusMD),
+                ),
               ),
+              child: _isSaving
+                  ? SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: isDark ? AppTheme.primaryLight : AppTheme.primaryColor,
+                      ),
+                    )
+                  : Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.check_rounded, size: 20),
+                        const SizedBox(width: 4),
+                        Text(
+                          '保存',
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
             ),
           ),
         ],
@@ -398,60 +388,68 @@ class _DiaryEditPageState extends ConsumerState<DiaryEditPage> {
         Text(
           '今天的心情',
           style: TextStyle(
-            fontSize: 16,
+            fontSize: 14,
             fontWeight: FontWeight.w600,
-            color: isDark ? AppTheme.darkText : AppTheme.lightText,
+            color: isDark ? AppTheme.darkTextSecondary : AppTheme.lightTextSecondary,
+            letterSpacing: 0.3,
           ),
         ),
         const SizedBox(height: 12),
-        Wrap(
-          spacing: 12,
-          runSpacing: 12,
-          children: Mood.values.asMap().entries.map((entry) {
-            final index = entry.key;
-            final mood = entry.value;
-            final isSelected = _selectedMood == index;
+        SizedBox(
+          height: 44,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: Mood.values.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 8),
+            itemBuilder: (context, index) {
+              final mood = Mood.values[index];
+              final isSelected = _selectedMood == index;
 
-            return GestureDetector(
-              onTap: () => setState(() => _selectedMood = index),
-              child: AnimatedContainer(
-                duration: 200.ms,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                decoration: BoxDecoration(
-                  color: isSelected
-                      ? AppTheme.primaryColor.withOpacity(0.2)
-                      : isDark
-                          ? AppTheme.darkCard
-                          : AppTheme.lightCard,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
+              return GestureDetector(
+                onTap: () => setState(() => _selectedMood = index),
+                child: AnimatedContainer(
+                  duration: 200.ms,
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  decoration: BoxDecoration(
                     color: isSelected
-                        ? AppTheme.primaryColor
-                        : Colors.transparent,
-                    width: 2,
+                        ? (isDark ? AppTheme.primaryLight : AppTheme.primaryColor)
+                            .withValues(alpha: isDark ? 0.2 : 0.12)
+                        : isDark
+                            ? AppTheme.darkCard
+                            : AppTheme.lightCard,
+                    borderRadius: BorderRadius.circular(AppTheme.radiusXL),
+                    border: Border.all(
+                      color: isSelected
+                          ? (isDark ? AppTheme.primaryLight : AppTheme.primaryColor)
+                          : isDark
+                              ? AppTheme.darkBorder
+                              : AppTheme.lightBorder,
+                      width: 1.5,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(mood.emoji, style: const TextStyle(fontSize: 18)),
+                      const SizedBox(width: 6),
+                      Text(
+                        mood.label,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                          color: isSelected
+                              ? (isDark ? AppTheme.primaryLight : AppTheme.primaryColor)
+                              : isDark
+                                  ? AppTheme.darkTextSecondary
+                                  : AppTheme.lightTextSecondary,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(mood.emoji, style: const TextStyle(fontSize: 20)),
-                    const SizedBox(width: 6),
-                    Text(
-                      mood.label,
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: isSelected
-                            ? AppTheme.primaryColor
-                            : isDark
-                                ? AppTheme.darkTextSecondary
-                                : AppTheme.lightTextSecondary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          }).toList(),
+              );
+            },
+          ),
         ),
       ],
     );
@@ -464,83 +462,97 @@ class _DiaryEditPageState extends ConsumerState<DiaryEditPage> {
         Text(
           '天气',
           style: TextStyle(
-            fontSize: 16,
+            fontSize: 14,
             fontWeight: FontWeight.w600,
-            color: isDark ? AppTheme.darkText : AppTheme.lightText,
+            color: isDark ? AppTheme.darkTextSecondary : AppTheme.lightTextSecondary,
+            letterSpacing: 0.3,
           ),
         ),
         const SizedBox(height: 12),
-        Wrap(
-          spacing: 12,
-          runSpacing: 12,
-          children: [
-            GestureDetector(
-              onTap: () => setState(() => _selectedWeather = null),
-              child: AnimatedContainer(
-                duration: 200.ms,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                decoration: BoxDecoration(
-                  color: _selectedWeather == null
-                      ? AppTheme.primaryColor.withOpacity(0.2)
-                      : isDark
-                          ? AppTheme.darkCard
-                          : AppTheme.lightCard,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: _selectedWeather == null
-                        ? AppTheme.primaryColor
-                        : Colors.transparent,
-                    width: 2,
+        SizedBox(
+          height: 40,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: Weather.values.length + 1,
+            separatorBuilder: (_, __) => const SizedBox(width: 8),
+            itemBuilder: (context, index) {
+              if (index == 0) {
+                final isSelected = _selectedWeather == null;
+                return GestureDetector(
+                  onTap: () => setState(() => _selectedWeather = null),
+                  child: AnimatedContainer(
+                    duration: 200.ms,
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? (isDark ? AppTheme.primaryLight : AppTheme.primaryColor)
+                              .withValues(alpha: isDark ? 0.2 : 0.12)
+                          : isDark
+                              ? AppTheme.darkCard
+                              : AppTheme.lightCard,
+                      borderRadius: BorderRadius.circular(AppTheme.radiusXL),
+                      border: Border.all(
+                        color: isSelected
+                            ? (isDark ? AppTheme.primaryLight : AppTheme.primaryColor)
+                            : isDark
+                                ? AppTheme.darkBorder
+                                : AppTheme.lightBorder,
+                        width: 1.5,
+                      ),
+                    ),
+                    child: Text(
+                      '不记录',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                        color: isSelected
+                            ? (isDark ? AppTheme.primaryLight : AppTheme.primaryColor)
+                            : isDark
+                                ? AppTheme.darkTextSecondary
+                                : AppTheme.lightTextSecondary,
+                      ),
+                    ),
                   ),
-                ),
-                child: Text(
-                  '不记录',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: _selectedWeather == null
-                        ? AppTheme.primaryColor
-                        : isDark
-                            ? AppTheme.darkTextSecondary
-                            : AppTheme.lightTextSecondary,
-                  ),
-                ),
-              ),
-            ),
-            ...Weather.values.asMap().entries.map((entry) {
-              final index = entry.key;
-              final weather = entry.value;
-              final isSelected = _selectedWeather == index;
+                );
+              }
+
+              final weather = Weather.values[index - 1];
+              final isSelected = _selectedWeather == index - 1;
 
               return GestureDetector(
-                onTap: () => setState(() => _selectedWeather = index),
+                onTap: () => setState(() => _selectedWeather = index - 1),
                 child: AnimatedContainer(
                   duration: 200.ms,
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                   decoration: BoxDecoration(
                     color: isSelected
-                        ? AppTheme.primaryColor.withOpacity(0.2)
+                        ? (isDark ? AppTheme.primaryLight : AppTheme.primaryColor)
+                            .withValues(alpha: isDark ? 0.2 : 0.12)
                         : isDark
                             ? AppTheme.darkCard
                             : AppTheme.lightCard,
-                    borderRadius: BorderRadius.circular(20),
+                    borderRadius: BorderRadius.circular(AppTheme.radiusXL),
                     border: Border.all(
                       color: isSelected
-                          ? AppTheme.primaryColor
-                          : Colors.transparent,
-                      width: 2,
+                          ? (isDark ? AppTheme.primaryLight : AppTheme.primaryColor)
+                          : isDark
+                              ? AppTheme.darkBorder
+                              : AppTheme.lightBorder,
+                      width: 1.5,
                     ),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(weather.emoji, style: const TextStyle(fontSize: 18)),
+                      Text(weather.emoji, style: const TextStyle(fontSize: 16)),
                       const SizedBox(width: 4),
                       Text(
                         weather.label,
                         style: TextStyle(
-                          fontSize: 14,
+                          fontSize: 13,
+                          fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
                           color: isSelected
-                              ? AppTheme.primaryColor
+                              ? (isDark ? AppTheme.primaryLight : AppTheme.primaryColor)
                               : isDark
                                   ? AppTheme.darkTextSecondary
                                   : AppTheme.lightTextSecondary,
@@ -550,8 +562,8 @@ class _DiaryEditPageState extends ConsumerState<DiaryEditPage> {
                   ),
                 ),
               );
-            }),
-          ],
+            },
+          ),
         ),
       ],
     );
@@ -561,16 +573,19 @@ class _DiaryEditPageState extends ConsumerState<DiaryEditPage> {
     return TextField(
       controller: _titleController,
       style: TextStyle(
-        fontSize: 24,
-        fontWeight: FontWeight.bold,
+        fontSize: 26,
+        fontWeight: FontWeight.w700,
         color: isDark ? AppTheme.darkText : AppTheme.lightText,
+        letterSpacing: -0.5,
+        height: 1.3,
       ),
       decoration: InputDecoration(
-        hintText: '标题（可选）',
+        hintText: '标题',
         hintStyle: TextStyle(
           color: isDark
-              ? AppTheme.darkTextSecondary
-              : AppTheme.lightTextSecondary,
+              ? AppTheme.darkTextTertiary
+              : AppTheme.lightTextTertiary,
+          fontWeight: FontWeight.w400,
         ),
         border: InputBorder.none,
         contentPadding: EdgeInsets.zero,
@@ -582,18 +597,20 @@ class _DiaryEditPageState extends ConsumerState<DiaryEditPage> {
     return TextField(
       controller: _contentController,
       maxLines: null,
-      minLines: 10,
+      minLines: 8,
       style: TextStyle(
         fontSize: 16,
         height: 1.8,
         color: isDark ? AppTheme.darkText : AppTheme.lightText,
+        letterSpacing: 0.1,
       ),
       decoration: InputDecoration(
         hintText: '写下今天的故事...',
         hintStyle: TextStyle(
           color: isDark
-              ? AppTheme.darkTextSecondary
-              : AppTheme.lightTextSecondary,
+              ? AppTheme.darkTextTertiary
+              : AppTheme.lightTextTertiary,
+          height: 1.8,
         ),
         border: InputBorder.none,
         contentPadding: EdgeInsets.zero,
@@ -603,75 +620,64 @@ class _DiaryEditPageState extends ConsumerState<DiaryEditPage> {
 
   Widget _buildImageSection(bool isDark) {
     final images = _existingDiary?.images ?? _tempImages;
-
     if (images.isEmpty) return const SizedBox.shrink();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SizedBox(height: 16),
+        const SizedBox(height: 20),
         Text(
           '图片',
           style: TextStyle(
-            fontSize: 16,
+            fontSize: 14,
             fontWeight: FontWeight.w600,
-            color: isDark ? AppTheme.darkText : AppTheme.lightText,
+            color: isDark ? AppTheme.darkTextSecondary : AppTheme.lightTextSecondary,
           ),
         ),
         const SizedBox(height: 12),
-        Wrap(
-          spacing: 12,
-          runSpacing: 12,
-          children: images.asMap().entries.map((entry) {
-            final index = entry.key;
-            final path = entry.value;
-            return Stack(
-              children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: Image.file(
-                    File(path),
+        SizedBox(
+          height: 100,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: images.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 12),
+            itemBuilder: (context, index) {
+              return Stack(
+                children: [
+                  Container(
                     width: 100,
                     height: 100,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => Container(
-                      width: 100,
-                      height: 100,
-                      decoration: BoxDecoration(
-                        color: isDark ? AppTheme.darkCard : AppTheme.lightCard,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Icon(
-                        Icons.broken_image_rounded,
-                        color: isDark
-                            ? AppTheme.darkTextSecondary
-                            : AppTheme.lightTextSecondary,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(AppTheme.radiusMD),
+                      image: DecorationImage(
+                        image: FileImage(File(images[index])),
+                        fit: BoxFit.cover,
                       ),
                     ),
                   ),
-                ),
-                Positioned(
-                  top: 4,
-                  right: 4,
-                  child: GestureDetector(
-                    onTap: () => _removeImage(index),
-                    child: Container(
-                      padding: const EdgeInsets.all(4),
-                      decoration: BoxDecoration(
-                        color: Colors.black54,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Icon(
-                        Icons.close_rounded,
-                        size: 16,
-                        color: Colors.white,
+                  Positioned(
+                    top: 4,
+                    right: 4,
+                    child: GestureDetector(
+                      onTap: () => _removeImage(index),
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.6),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.close_rounded,
+                          size: 16,
+                          color: Colors.white,
+                        ),
                       ),
                     ),
                   ),
-                ),
-              ],
-            );
-          }).toList(),
+                ],
+              );
+            },
+          ),
         ),
       ],
     );
@@ -684,9 +690,9 @@ class _DiaryEditPageState extends ConsumerState<DiaryEditPage> {
         Text(
           '标签',
           style: TextStyle(
-            fontSize: 16,
+            fontSize: 14,
             fontWeight: FontWeight.w600,
-            color: isDark ? AppTheme.darkText : AppTheme.lightText,
+            color: isDark ? AppTheme.darkTextSecondary : AppTheme.lightTextSecondary,
           ),
         ),
         const SizedBox(height: 12),
@@ -696,28 +702,38 @@ class _DiaryEditPageState extends ConsumerState<DiaryEditPage> {
             runSpacing: 8,
             children: _tags.map((tag) {
               return Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                 decoration: BoxDecoration(
-                  gradient: AppTheme.primaryGradient,
-                  borderRadius: BorderRadius.circular(16),
+                  color: isDark
+                      ? AppTheme.darkCard
+                      : AppTheme.lightCard,
+                  borderRadius: BorderRadius.circular(AppTheme.radiusXL),
+                  border: Border.all(
+                    color: isDark ? AppTheme.darkBorder : AppTheme.lightBorder,
+                  ),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      tag,
-                      style: const TextStyle(
-                        color: Colors.white,
+                      '#$tag',
+                      style: TextStyle(
                         fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: isDark
+                            ? AppTheme.darkTextSecondary
+                            : AppTheme.lightTextSecondary,
                       ),
                     ),
-                    const SizedBox(width: 4),
+                    const SizedBox(width: 6),
                     GestureDetector(
                       onTap: () => _removeTag(tag),
-                      child: const Icon(
+                      child: Icon(
                         Icons.close_rounded,
                         size: 16,
-                        color: Colors.white,
+                        color: isDark
+                            ? AppTheme.darkTextTertiary
+                            : AppTheme.lightTextTertiary,
                       ),
                     ),
                   ],
@@ -727,48 +743,50 @@ class _DiaryEditPageState extends ConsumerState<DiaryEditPage> {
           ),
           const SizedBox(height: 12),
         ],
-        Row(
-          children: [
-            Expanded(
-              child: TextField(
-                controller: _tagController,
-                style: TextStyle(
-                  color: isDark ? AppTheme.darkText : AppTheme.lightText,
-                ),
-                decoration: InputDecoration(
-                  hintText: '添加标签',
-                  hintStyle: TextStyle(
-                    color: isDark
-                        ? AppTheme.darkTextSecondary
-                        : AppTheme.lightTextSecondary,
-                  ),
-                  filled: true,
-                  fillColor: isDark ? AppTheme.darkCard : AppTheme.lightCard,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide.none,
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 12,
-                  ),
-                ),
-                onSubmitted: (_) => _addTag(),
-              ),
+        Container(
+          decoration: BoxDecoration(
+            color: isDark ? AppTheme.darkCard : AppTheme.lightCard,
+            borderRadius: BorderRadius.circular(AppTheme.radiusMD),
+            border: Border.all(
+              color: isDark ? AppTheme.darkBorder : AppTheme.lightBorder,
             ),
-            const SizedBox(width: 12),
-            IconButton(
-              onPressed: _addTag,
-              icon: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: AppTheme.primaryColor,
-                  borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _tagController,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: isDark ? AppTheme.darkText : AppTheme.lightText,
+                  ),
+                  decoration: InputDecoration(
+                    hintText: '添加标签',
+                    hintStyle: TextStyle(
+                      color: isDark
+                          ? AppTheme.darkTextTertiary
+                          : AppTheme.lightTextTertiary,
+                    ),
+                    border: InputBorder.none,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 14,
+                    ),
+                  ),
+                  onSubmitted: (_) => _addTag(),
                 ),
-                child: const Icon(Icons.add_rounded, color: Colors.white),
               ),
-            ),
-          ],
+              IconButton(
+                onPressed: _addTag,
+                icon: Icon(
+                  Icons.add_rounded,
+                  color: isDark
+                      ? AppTheme.primaryLight
+                      : AppTheme.primaryColor,
+                ),
+              ),
+            ],
+          ),
         ),
       ],
     );
