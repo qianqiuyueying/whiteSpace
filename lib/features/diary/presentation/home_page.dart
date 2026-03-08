@@ -6,10 +6,12 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/diary_card.dart';
+import '../../auth/presentation/auth_provider.dart';
+import '../../sync/presentation/sync_provider.dart';
 import 'diary_provider.dart';
 
 /// 首页 - 日记列表
-/// 
+///
 /// 设计理念：温暖的纸张质感，优雅的排版，沉浸式阅读体验
 class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
@@ -23,11 +25,30 @@ class _HomePageState extends ConsumerState<HomePage> with TickerProviderStateMix
   bool _isSearching = false;
   bool _isScrolled = false;
   final _scrollController = ScrollController();
+  bool _hasAutoSynced = false;
 
   @override
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
+    // 延迟执行自动同步，等待 Provider 初始化完成
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _autoSyncIfNeeded();
+    });
+  }
+
+  /// 应用启动时自动同步
+  Future<void> _autoSyncIfNeeded() async {
+    if (_hasAutoSynced) return;
+    _hasAutoSynced = true;
+
+    final authState = ref.read(authProvider);
+    if (authState.isBound) {
+      // 已绑定 token，自动同步
+      await ref.read(syncServiceProvider).sync();
+      // 刷新日记列表
+      ref.read(diaryListProvider.notifier).refresh();
+    }
   }
 
   void _onScroll() {

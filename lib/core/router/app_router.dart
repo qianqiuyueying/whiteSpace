@@ -1,8 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../features/auth/presentation/auth_provider.dart';
-import '../../features/auth/presentation/login_page.dart';
 import '../../features/diary/presentation/home_page.dart';
 import '../../features/diary/presentation/diary_edit_page.dart';
 import '../../features/diary/presentation/diary_detail_page.dart';
@@ -15,15 +13,9 @@ import '../../features/settings/presentation/settings_page.dart';
 
 /// 路由 Provider
 final routerProvider = Provider<GoRouter>((ref) {
-  final authState = ref.watch(authProvider);
-  
   return GoRouter(
-    initialLocation: authState.isAuthenticated ? '/' : '/login',
+    initialLocation: '/',
     routes: [
-      GoRoute(
-        path: '/login',
-        builder: (context, state) => const LoginPage(),
-      ),
       GoRoute(
         path: '/',
         builder: (context, state) => const HomePage(),
@@ -71,19 +63,5 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const SettingsPage(),
       ),
     ],
-    redirect: (context, state) {
-      final isLoggedIn = authState.isAuthenticated;
-      final isGoingToLogin = state.matchedLocation == '/login';
-
-      if (!isLoggedIn && !isGoingToLogin) {
-        return '/login';
-      }
-
-      if (isLoggedIn && isGoingToLogin) {
-        return '/';
-      }
-
-      return null;
-    },
   );
 });

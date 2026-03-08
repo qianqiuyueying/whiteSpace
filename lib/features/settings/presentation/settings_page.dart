@@ -38,12 +38,12 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     super.initState();
   }
 
-  Future<void> _logout() async {
+  Future<void> _unbindToken() async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('退出登录'),
-        content: const Text('确定要退出登录吗？本地数据将被清除。'),
+        title: const Text('解绑 GitHub Token'),
+        content: const Text('确定要解绑吗？解绑后将无法使用云同步功能，本地数据不会丢失。'),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppTheme.radiusLG),
         ),
@@ -55,18 +55,168 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           TextButton(
             onPressed: () => Navigator.pop(context, true),
             style: TextButton.styleFrom(foregroundColor: AppTheme.accentColor),
-            child: const Text('退出'),
+            child: const Text('解绑'),
           ),
         ],
       ),
     );
 
     if (confirmed == true && mounted) {
-      await ref.read(authProvider.notifier).logout();
-      final db = await ref.read(databaseServiceProvider.future);
-      await db.close();
-      if (mounted) context.go('/login');
+      await ref.read(authProvider.notifier).unbindToken();
     }
+  }
+
+  Future<void> _showBindTokenDialog(bool isDark) async {
+    final tokenController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+    bool obscureText = true;
+
+    await showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text('绑定 GitHub Token'),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppTheme.radiusLG),
+          ),
+          content: SingleChildScrollView(
+            child: Form(
+              key: formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '绑定后可使用云同步功能',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: isDark
+                          ? AppTheme.darkTextSecondary
+                          : AppTheme.lightTextSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: tokenController,
+                    obscureText: obscureText,
+                    style: TextStyle(
+                      color: isDark ? AppTheme.darkText : AppTheme.lightText,
+                      fontFamily: 'monospace',
+                    ),
+                    decoration: InputDecoration(
+                      hintText: 'ghp_xxxxxxxxxxxxxxxxxxxx',
+                      hintStyle: TextStyle(
+                        color: isDark
+                            ? AppTheme.darkTextTertiary
+                            : AppTheme.lightTextTertiary,
+                        fontSize: 14,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(AppTheme.radiusMD),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 14,
+                      ),
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          obscureText
+                              ? Icons.visibility_off_outlined
+                              : Icons.visibility_outlined,
+                          color: isDark
+                              ? AppTheme.darkTextTertiary
+                              : AppTheme.lightTextTertiary,
+                          size: 20,
+                        ),
+                        onPressed: () {
+                          setState(() {
+                            obscureText = !obscureText;
+                          });
+                        },
+                      ),
+                    ),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return '请输入 GitHub Token';
+                      }
+                      if (value.length < 35) {
+                        return 'Token 格式不正确';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  TextButton.icon(
+                    onPressed: () async {
+                      final uri = Uri.parse(
+                        'https://github.com/settings/tokens/new?description=留白日记&scopes=gist',
+                      );
+                      if (await canLaunchUrl(uri)) {
+                        await launchUrl(uri, mode: LaunchMode.externalApplication);
+                      }
+                    },
+                    icon: Icon(
+                      Icons.open_in_new_rounded,
+                      size: 16,
+                      color: isDark ? AppTheme.primaryLight : AppTheme.primaryColor,
+                    ),
+                    label: Text(
+                      '获取 Token',
+                      style: TextStyle(
+                        color: isDark ? AppTheme.primaryLight : AppTheme.primaryColor,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('取消'),
+            ),
+            TextButton(
+              onPressed: () async {
+                if (!formKey.currentState!.validate()) return;
+
+                Navigator.pop(context);
+                
+                final success = await ref
+                    .read(authProvider.notifier)
+                    .bindToken(tokenController.text.trim());
+
+                if (mounted) {
+                  if (success) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: const Text('绑定成功'),
+                        behavior: SnackBarBehavior.floating,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(AppTheme.radiusMD),
+                        ),
+                      ),
+                    );
+                    // 绑定成功后自动同步一次
+                    ref.read(syncServiceProvider).sync();
+                  } else {
+                    final error = ref.read(authProvider).error;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('绑定失败: ${error ?? "未知错误"}'),
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                  }
+                }
+              },
+              child: const Text('绑定'),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _exportData() async {
@@ -204,6 +354,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final authState = ref.watch(authProvider);
     final user = authState.user;
+    final isBound = authState.isBound;
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: isDark ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark,
@@ -218,26 +369,38 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                   padding: const EdgeInsets.symmetric(horizontal: 24),
                   child: Column(
                     children: [
-                      _buildUserCard(user, isDark),
+                      _buildUserCard(user, isBound, isDark),
                       const SizedBox(height: 32),
-                      _buildSection('数据同步', [
-                        _buildSyncTile(isDark),
-                        _buildListTile(
-                          icon: Icons.open_in_new_rounded,
-                          title: '查看 Gist',
-                          subtitle: '在浏览器中查看云端数据',
-                          onTap: _openGistPage,
-                          isDark: isDark,
-                        ),
-                        _buildListTile(
-                          icon: Icons.history_rounded,
-                          title: '上次同步',
-                          subtitle: user?.lastSyncAt != null
-                              ? _formatDateTime(user!.lastSyncAt!)
-                              : '从未同步',
-                          isDark: isDark,
-                        ),
-                      ], isDark),
+                      if (isBound) ...[
+                        _buildSection('数据同步', [
+                          _buildSyncTile(isDark),
+                          _buildListTile(
+                            icon: Icons.open_in_new_rounded,
+                            title: '查看 Gist',
+                            subtitle: '在浏览器中查看云端数据',
+                            onTap: _openGistPage,
+                            isDark: isDark,
+                          ),
+                          _buildListTile(
+                            icon: Icons.history_rounded,
+                            title: '上次同步',
+                            subtitle: user?.lastSyncAt != null
+                                ? _formatDateTime(user!.lastSyncAt!)
+                                : '从未同步',
+                            isDark: isDark,
+                          ),
+                        ], isDark),
+                      ] else ...[
+                        _buildSection('云同步', [
+                          _buildListTile(
+                            icon: Icons.link_rounded,
+                            title: '绑定 GitHub Token',
+                            subtitle: '绑定后可使用云同步功能',
+                            onTap: () => _showBindTokenDialog(isDark),
+                            isDark: isDark,
+                          ),
+                        ], isDark),
+                      ],
                       const SizedBox(height: 24),
                       _buildSection('个人', [
                         _buildListTile(
@@ -298,7 +461,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                         ),
                       ], isDark),
                       const SizedBox(height: 40),
-                      _buildLogoutButton(isDark),
+                      if (isBound) _buildUnbindButton(isDark),
                       const SizedBox(height: 40),
                     ],
                   ),
@@ -337,20 +500,27 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     );
   }
 
-  Widget _buildUserCard(UserProfile? user, bool isDark) {
+  Widget _buildUserCard(UserProfile? user, bool isBound, bool isDark) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: AppTheme.primaryGradient,
+        gradient: isBound ? AppTheme.primaryGradient : null,
+        color: isBound ? null : (isDark ? AppTheme.darkCard : AppTheme.lightCard),
         borderRadius: BorderRadius.circular(AppTheme.radiusLG),
-        boxShadow: [
-          BoxShadow(
-            color: (isDark ? AppTheme.primaryLight : AppTheme.primaryColor)
-                .withValues(alpha: 0.3),
-            blurRadius: 24,
-            offset: const Offset(0, 8),
-          ),
-        ],
+        border: isBound ? null : Border.all(
+          color: isDark ? AppTheme.darkBorder : AppTheme.lightBorder,
+          width: 1,
+        ),
+        boxShadow: isBound
+            ? [
+                BoxShadow(
+                  color: (isDark ? AppTheme.primaryLight : AppTheme.primaryColor)
+                      .withValues(alpha: 0.3),
+                  blurRadius: 24,
+                  offset: const Offset(0, 8),
+                ),
+              ]
+            : null,
       ),
       child: Row(
         children: [
@@ -358,25 +528,27 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
             width: 56,
             height: 56,
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.2),
+              color: isBound
+                  ? Colors.white.withValues(alpha: 0.2)
+                  : (isDark ? AppTheme.darkBackground : AppTheme.lightBackground),
               borderRadius: BorderRadius.circular(16),
             ),
-            child: user?.avatarUrl != null
+            child: isBound && user?.avatarUrl != null
                 ? ClipRRect(
                     borderRadius: BorderRadius.circular(16),
                     child: Image.network(
                       user!.avatarUrl!,
                       fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => const Icon(
+                      errorBuilder: (_, __, ___) => Icon(
                         Icons.person_outline_rounded,
-                        color: Colors.white,
+                        color: isBound ? Colors.white : (isDark ? AppTheme.darkText : AppTheme.lightText),
                         size: 28,
                       ),
                     ),
                   )
-                : const Icon(
-                    Icons.person_outline_rounded,
-                    color: Colors.white,
+                : Icon(
+                    isBound ? Icons.cloud_done_rounded : Icons.cloud_off_rounded,
+                    color: isBound ? Colors.white : (isDark ? AppTheme.darkText : AppTheme.lightText),
                     size: 28,
                   ),
           ),
@@ -386,9 +558,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  user?.username ?? '未登录',
-                  style: const TextStyle(
-                    color: Colors.white,
+                  isBound ? (user?.username ?? '已绑定') : '本地模式',
+                  style: TextStyle(
+                    color: isBound ? Colors.white : (isDark ? AppTheme.darkText : AppTheme.lightText),
                     fontSize: 18,
                     fontWeight: FontWeight.w700,
                     letterSpacing: -0.3,
@@ -396,9 +568,11 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'GitHub 账号已连接',
+                  isBound ? 'GitHub 账号已连接' : '数据仅保存在本地',
                   style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.8),
+                    color: isBound
+                        ? Colors.white.withValues(alpha: 0.8)
+                        : (isDark ? AppTheme.darkTextSecondary : AppTheme.lightTextSecondary),
                     fontSize: 13,
                     fontWeight: FontWeight.w400,
                   ),
@@ -406,35 +580,36 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               ],
             ),
           ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(AppTheme.radiusXL),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 8,
-                  height: 8,
-                  decoration: const BoxDecoration(
-                    color: Color(0xFF4CAF50),
-                    shape: BoxShape.circle,
+          if (isBound)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(AppTheme.radiusXL),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 8,
+                    height: 8,
+                    decoration: const BoxDecoration(
+                      color: Color(0xFF4CAF50),
+                      shape: BoxShape.circle,
+                    ),
                   ),
-                ),
-                const SizedBox(width: 6),
-                const Text(
-                  '已连接',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
+                  const SizedBox(width: 6),
+                  const Text(
+                    '已连接',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
         ],
       ),
     ).animate().fadeIn(duration: 300.ms).slideY(begin: -0.1, end: 0);
@@ -674,11 +849,11 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     );
   }
 
-  Widget _buildLogoutButton(bool isDark) {
+  Widget _buildUnbindButton(bool isDark) {
     return SizedBox(
       width: double.infinity,
       child: OutlinedButton(
-        onPressed: _logout,
+        onPressed: _unbindToken,
         style: OutlinedButton.styleFrom(
           foregroundColor: AppTheme.accentColor,
           side: BorderSide(
@@ -691,7 +866,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           ),
         ),
         child: const Text(
-          '退出登录',
+          '解绑 GitHub Token',
           style: TextStyle(
             fontSize: 15,
             fontWeight: FontWeight.w600,
